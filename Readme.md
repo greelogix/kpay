@@ -29,9 +29,25 @@ A production-ready Laravel package for KNET payment gateway integration with sup
 
 ### Step 1: Install via Composer
 
-#### Option A: Install from Git Repository (Private/Public)
+#### Option A: Install from Git Repository (Recommended)
 
 1. **Add repository to your Laravel project's `composer.json`:**
+
+   ```json
+   {
+       "repositories": [
+           {
+               "type": "vcs",
+               "url": "git@github.com:greelogix/kpayment.git"
+           }
+       ],
+       "require": {
+           "greelogix/kpayment-laravel": "dev-main"
+       }
+   }
+   ```
+
+   Or if using HTTPS:
 
    ```json
    {
@@ -49,6 +65,9 @@ A production-ready Laravel package for KNET payment gateway integration with sup
 
 2. **If using private repository, configure authentication:**
 
+   For SSH (recommended): Ensure your SSH key is added to GitHub.
+
+   For HTTPS with token:
    ```bash
    composer config github-oauth.github.com your_token_here
    ```
@@ -56,7 +75,13 @@ A production-ready Laravel package for KNET payment gateway integration with sup
 3. **Install the package:**
 
    ```bash
-   composer require greelogix/kpayment-laravel
+   composer require greelogix/kpayment-laravel:dev-main
+   ```
+
+   Or if you've already added the repository to `composer.json`:
+
+   ```bash
+   composer install
    ```
 
 #### Option B: Install from Packagist (When Published)
