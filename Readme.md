@@ -348,46 +348,53 @@ try {
 Similar to MyFatoorah, you can show payment methods to users and redirect to KNET with a selected method:
 
 ```php
+// In your payment page controller (app/Http/Controllers/PaymentController.php)
+namespace App\Http\Controllers;
+
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
 use Greelogix\KPayment\Facades\KPayment;
 use Greelogix\KPayment\Models\PaymentMethod;
 
-// In your payment page controller
-public function showPaymentMethods()
+class PaymentController extends Controller
 {
-    // Get available payment methods for current platform
-    $platform = request()->is('mobile/*') ? 'ios' : 'web';
-    $paymentMethods = PaymentMethod::activeForPlatform($platform)->get();
-    
-    return view('payment.methods', compact('paymentMethods'));
-}
+    public function showPaymentMethods()
+    {
+        // Get available payment methods for current platform
+        $platform = request()->is('mobile/*') ? 'ios' : 'web';
+        $paymentMethods = PaymentMethod::activeForPlatform($platform)->get();
+        
+        return view('payment.methods', compact('paymentMethods'));
+    }
 
-// When user selects a payment method
-public function processPayment(Request $request)
-{
-    $request->validate([
-        'payment_method_code' => 'required|exists:kpayment_payment_methods,code',
-        'amount' => 'required|numeric',
-    ]);
+    // When user selects a payment method
+    public function processPayment(Request $request)
+    {
+        $request->validate([
+            'payment_method_code' => 'required|exists:kpayment_payment_methods,code',
+            'amount' => 'required|numeric',
+        ]);
 
-    $paymentData = KPayment::generatePaymentForm([
-        'amount' => $request->amount,
-        'track_id' => 'ORDER-' . time(),
-        'payment_method_code' => $request->payment_method_code, // Pre-select method
-        'response_url' => url('/kpayment/response'), // Package handles this automatically
-        'error_url' => url('/payment/error'), // Create this route in your app
-    ]);
+        $paymentData = KPayment::generatePaymentForm([
+            'amount' => $request->amount,
+            'track_id' => 'ORDER-' . time(),
+            'payment_method_code' => $request->payment_method_code, // Pre-select method
+            'response_url' => url('/kpayment/response'), // Package handles this automatically
+            'error_url' => url('/payment/error'), // Create this route in your app
+        ]);
 
-    return view('payment.knet-form', [
-        'formUrl' => $paymentData['form_url'],
-        'formData' => $paymentData['form_data'],
-    ]);
+        return view('payment.knet-form', [
+            'formUrl' => $paymentData['form_url'],
+            'formData' => $paymentData['form_data'],
+        ]);
+    }
 }
 ```
 
 ### Using Models
 
 ```php
+use Greelogix\KPayment\Facades\KPayment;
 use Greelogix\KPayment\Models\KnetPayment;
 use Greelogix\KPayment\Models\PaymentMethod;
 
