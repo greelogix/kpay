@@ -15,6 +15,15 @@ Route::middleware('web')->group(function () {
         ->name('kpayment.response.get')
         ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
+    // Payment success and error pages
+    Route::get('payment/success', function () {
+        return view('kpayment::payment.success');
+    })->name('kpayment.success');
+
+    Route::get('payment/error', function () {
+        return view('kpayment::payment.error');
+    })->name('kpayment.error');
+
     // Admin routes
     Route::prefix('admin/kpayment')->name('kpayment.admin.')->middleware(['auth'])->group(function () {
         // Settings routes (Full CRUD)
