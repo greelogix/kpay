@@ -584,6 +584,7 @@ php artisan migrate
 ## Production Checklist
 
 - [ ] Set **Test Mode** to `false` in admin panel
+- [ ] **Configure all credentials** (Tranportal ID, Password, Resource Key) - These are REQUIRED for production
 - [ ] Use production credentials from your acquiring bank
 - [ ] Set base URL to `https://www.kpay.com.kw/kpg/PaymentHTTP.htm`
 - [ ] Configure response URL (must be publicly accessible)
