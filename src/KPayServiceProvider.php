@@ -1,11 +1,11 @@
 <?php
 
-namespace Greelogix\KPayment;
+namespace Greelogix\KPay;
 
 use Illuminate\Support\ServiceProvider;
-use Greelogix\KPayment\Services\KnetService;
+use Greelogix\KPay\Services\KPayService;
 
-class KPaymentServiceProvider extends ServiceProvider
+class KPayServiceProvider extends ServiceProvider
 {
     /**
      * Register services.
@@ -13,14 +13,14 @@ class KPaymentServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(
-            __DIR__ . '/../config/kpayment.php',
-            'kpayment'
+            __DIR__ . '/../config/kpay.php',
+            'kpay'
         );
 
-        $this->app->singleton('kpayment', function ($app) {
-            $config = $app['config']->get('kpayment');
+        $this->app->singleton('kpay', function ($app) {
+            $config = $app['config']->get('kpay');
             
-            return new KnetService(
+            return new KPayService(
                 $config['tranportal_id'] ?? '',
                 $config['tranportal_password'] ?? '',
                 $config['resource_key'] ?? '',
@@ -47,36 +47,36 @@ class KPaymentServiceProvider extends ServiceProvider
         // Load routes (automatically loaded - no need to publish)
         $this->loadRoutesFrom(__DIR__ . '/../routes/web.php');
 
-        // Load views (automatically loaded - accessible as 'kpayment::view.name')
-        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'kpayment');
+        // Load views (automatically loaded - accessible as 'kpay::view.name')
+        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'kpay');
 
-        // Load translations (automatically loaded - accessible as __('kpayment.key'))
-        $this->loadTranslationsFrom(__DIR__ . '/../lang', 'kpayment');
+        // Load translations (automatically loaded - accessible as __('kpay.key'))
+        $this->loadTranslationsFrom(__DIR__ . '/../lang', 'kpay');
 
         // Publishable assets (optional - only if user wants to customize)
         $this->publishes([
-            __DIR__ . '/../config/kpayment.php' => config_path('kpayment.php'),
-        ], 'kpayment-config');
+            __DIR__ . '/../config/kpay.php' => config_path('kpay.php'),
+        ], 'kpay-config');
 
         $this->publishes([
             __DIR__ . '/../database/migrations' => database_path('migrations'),
-        ], 'kpayment-migrations');
+        ], 'kpay-migrations');
 
         $this->publishes([
-            __DIR__ . '/../resources/views' => resource_path('views/vendor/kpayment'),
-        ], 'kpayment-views');
+            __DIR__ . '/../resources/views' => resource_path('views/vendor/kpay'),
+        ], 'kpay-views');
 
         $this->publishes([
-            __DIR__ . '/../lang' => lang_path('vendor/kpayment'),
-        ], 'kpayment-lang');
+            __DIR__ . '/../lang' => lang_path('vendor/kpay'),
+        ], 'kpay-lang');
 
-        // Publish all KNET package assets at once
+        // Publish all KPay package assets at once
         $this->publishes([
-            __DIR__ . '/../config/kpayment.php' => config_path('kpayment.php'),
+            __DIR__ . '/../config/kpay.php' => config_path('kpay.php'),
             __DIR__ . '/../database/migrations' => database_path('migrations'),
-            __DIR__ . '/../resources/views' => resource_path('views/vendor/kpayment'),
-            __DIR__ . '/../lang' => lang_path('vendor/kpayment'),
-        ], 'kpayment');
+            __DIR__ . '/../resources/views' => resource_path('views/vendor/kpay'),
+            __DIR__ . '/../lang' => lang_path('vendor/kpay'),
+        ], 'kpay');
     }
 }
 

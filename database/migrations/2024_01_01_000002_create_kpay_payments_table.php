@@ -3,12 +3,25 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Config;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('kpayment_payments', function (Blueprint $table) {
+        // Get table name from config
+        $tableName = Config::get('kpay.payment_table', 'kpay_payments');
+        
+        // Skip if table creation is disabled or table already exists
+        if (!Config::get('kpay.create_payment_table', true)) {
+            return;
+        }
+        
+        if (Schema::hasTable($tableName)) {
+            return;
+        }
+
+        Schema::create($tableName, function (Blueprint $table) {
             $table->id();
             $table->string('payment_id')->nullable()->index();
             $table->string('track_id')->nullable()->index();
@@ -38,6 +51,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('kpayment_payments');
+        $tableName = Config::get('kpay.payment_table', 'kpay_payments');
+        Schema::dropIfExists($tableName);
     }
 };

@@ -1,6 +1,6 @@
 {
-    "name": "greelogix/kpayment-laravel",
-    "description": "Laravel package for KNET payment gateway integration with admin settings, webhooks, and payment processing.",
+    "name": "greelogix/kpay-laravel",
+    "description": "KPay - Laravel package for KNET payment gateway integration with payment processing, callbacks, and refunds.",
     "type": "library",
     "license": "MIT",
     "keywords": [
@@ -36,22 +36,22 @@
     },
     "autoload": {
         "psr-4": {
-            "Greelogix\\KPayment\\": "src/",
-            "Greelogix\\KPayment\\Database\\Seeders\\": "database/seeders/"
+            "Greelogix\\KPay\\": "src/",
+            "Greelogix\\KPay\\Database\\Seeders\\": "database/seeders/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Greelogix\\KPayment\\Tests\\": "tests/"
+            "Greelogix\\KPay\\Tests\\": "tests/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Greelogix\\KPayment\\KPaymentServiceProvider"
+                "Greelogix\\KPay\\KPayServiceProvider"
             ],
             "aliases": {
-                "KPayment": "Greelogix\\KPayment\\Facades\\KPayment"
+                "KPay": "Greelogix\\KPay\\Facades\\KPay"
             }
         }
     },

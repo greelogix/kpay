@@ -1,4 +1,4 @@
-# KNET Payment Laravel Package
+# KPay - KNET Payment Laravel Package
 
 A lightweight Laravel package for KNET payment gateway integration. Simple payment service - no admin panels, no database settings management.
 
@@ -7,7 +7,7 @@ A lightweight Laravel package for KNET payment gateway integration. Simple payme
 ## Features
 
 - ✅ Initiate payment with KNET
-- ✅ Get payment methods (from KNET API or standard list)
+- ✅ Get payment methods (standard KNET methods)
 - ✅ Payment callback handling (automatic)
 - ✅ Success and error pages
 - ✅ Payment response validation with hash verification
@@ -31,12 +31,12 @@ A lightweight Laravel package for KNET payment gateway integration. Simple payme
 # 1. Add repository to composer.json (see Step 1 below)
 
 # 2. Install package
-composer require greelogix/kpayment-laravel:dev-main
+composer require greelogix/kpay-laravel:dev-main
 
 # 3. Publish assets
-php artisan vendor:publish --tag=kpayment
+php artisan vendor:publish --tag=kpay
 
-# 4. Run migrations
+# 4. Run migrations (or configure to use existing table)
 php artisan migrate
 
 # 5. Configure .env (see Step 5 below)
@@ -56,12 +56,12 @@ php artisan config:clear && php artisan cache:clear && php artisan route:clear &
 Open `composer.json` in your Laravel project root and add the repository:
 
 **For SSH (recommended):**
-```json
-{
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "git@github.com:greelogix/kpayment.git"
+   ```json
+   {
+       "repositories": [
+           {
+               "type": "vcs",
+            "url": "git@github.com:greelogix/kpay.git"
         }
     ]
 }
@@ -73,7 +73,7 @@ Open `composer.json` in your Laravel project root and add the repository:
     "repositories": [
         {
             "type": "vcs",
-            "url": "https://github.com/greelogix/kpayment.git"
+            "url": "https://github.com/greelogix/kpay.git"
         }
     ]
 }
@@ -84,14 +84,14 @@ Open `composer.json` in your Laravel project root and add the repository:
 For SSH: Ensure your SSH key is added to GitHub.
 
 For HTTPS with token:
-```bash
-composer config github-oauth.github.com your_token_here
-```
+   ```bash
+   composer config github-oauth.github.com your_token_here
+   ```
 
 ### Step 2: Install Package
 
-```bash
-composer require greelogix/kpayment-laravel:dev-main
+   ```bash
+composer require greelogix/kpay-laravel:dev-main
 ```
 
 The package will be automatically discovered by Laravel (auto-discovery is enabled).
@@ -105,22 +105,30 @@ The package will be automatically discovered by Laravel (auto-discovery is enabl
 ### Step 3: Publish Package Assets
 
 ```bash
-php artisan vendor:publish --tag=kpayment
+php artisan vendor:publish --tag=kpay
 ```
 
 This will publish:
-- `config/kpayment.php` → `config/kpayment.php`
-- Payment views → `resources/views/vendor/kpayment/`
+- `config/kpay.php` → `config/kpay.php`
+- Payment views → `resources/views/vendor/kpay/`
 - Migrations → `database/migrations/`
-- Language files → `lang/vendor/kpayment/`
+- Language files → `lang/vendor/kpay/`
 
-### Step 4: Run Migrations
+### Step 4: Run Migrations (Optional)
 
+**Option A: Create New Table (Default)**
 ```bash
 php artisan migrate
 ```
+This will create the `kpay_payments` table for payment tracking.
 
-This will create the `kpayment_payments` table for payment tracking.
+**Option B: Use Existing Table**
+If you already have a `payments` or `transactions` table, configure it in `.env`:
+```env
+KPAY_PAYMENT_TABLE=payments
+KPAY_CREATE_TABLE=false
+```
+Then skip the migration. Make sure your existing table has the required columns (see Configuration section below).
 
 ### Step 5: Configure Settings
 
@@ -128,32 +136,32 @@ Configure via `.env` file:
 
 ```env
 # KNET Credentials (not required for testing)
-KPAYMENT_TRANPORTAL_ID=
-KPAYMENT_TRANPORTAL_PASSWORD=
-KPAYMENT_RESOURCE_KEY=
+KPAY_TRANPORTAL_ID=
+KPAY_TRANPORTAL_PASSWORD=
+KPAY_RESOURCE_KEY=
 
 # KNET URLs
-KPAYMENT_BASE_URL=https://kpaytest.com.kw/kpg/PaymentHTTP.htm
-KPAYMENT_RESPONSE_URL=https://yoursite.com/kpayment/response
-KPAYMENT_ERROR_URL=https://yoursite.com/payment/error
+KPAY_BASE_URL=https://kpaytest.com.kw/kpg/PaymentHTTP.htm
+KPAY_RESPONSE_URL=https://yoursite.com/kpay/response
+KPAY_ERROR_URL=https://yoursite.com/payment/error
 
 # Payment Settings
-KPAYMENT_TEST_MODE=true
-KPAYMENT_CURRENCY=414
-KPAYMENT_LANGUAGE=EN
-KPAYMENT_KFAST_ENABLED=false
-KPAYMENT_APPLE_PAY_ENABLED=false
+KPAY_TEST_MODE=true
+KPAY_CURRENCY=414
+KPAY_LANGUAGE=EN
+KPAY_KFAST_ENABLED=false
+KPAY_APPLE_PAY_ENABLED=false
 ```
 
 **For Testing:**
 - Leave credentials empty (not required)
 - Use test URL: `https://kpaytest.com.kw/kpg/PaymentHTTP.htm`
-- Set `KPAYMENT_TEST_MODE=true`
+- Set `KPAY_TEST_MODE=true`
 
 **For Production:**
 - Configure all credentials (required)
 - Use production URL: `https://www.kpay.com.kw/kpg/PaymentHTTP.htm`
-- Set `KPAYMENT_TEST_MODE=false`
+- Set `KPAY_TEST_MODE=false`
 
 ### Step 6: Clear Cache
 
@@ -167,12 +175,12 @@ php artisan view:clear
 ### Step 7: Verify Installation
 
 ```bash
-php artisan route:list | grep kpayment
+php artisan route:list | grep kpay
 ```
 
 You should see:
-- `POST /kpayment/response` - Payment response handler
-- `GET /kpayment/response` - Payment response handler (GET)
+- `POST /kpay/response` - Payment response handler
+- `GET /kpay/response` - Payment response handler (GET)
 - `GET /payment/success` - Payment success page
 - `GET /payment/error` - Payment error page
 
@@ -181,13 +189,10 @@ You should see:
 ### Get Payment Methods
 
 ```php
-use Greelogix\KPayment\Facades\KPayment;
+use Greelogix\KPay\Facades\KPay;
 
-// Get payment methods (tries API first, falls back to standard methods)
-$paymentMethods = KPayment::getPaymentMethods('web');
-
-// Or explicitly get from API
-$paymentMethods = KPayment::getPaymentMethodsFromApi('web');
+// Get payment methods (standard KNET methods)
+$paymentMethods = KPay::getPaymentMethods('web');
 
 // Returns array of payment methods:
 // [
@@ -198,14 +203,14 @@ $paymentMethods = KPayment::getPaymentMethodsFromApi('web');
 // ]
 ```
 
-**Note:** `getPaymentMethods()` attempts to fetch from KNET API first. If the API is unavailable or KNET doesn't provide a payment methods endpoint, it falls back to standard methods (KNET, Visa, Mastercard, plus KFAST/Apple Pay if enabled).
+**Note:** `getPaymentMethods()` returns standard KNET payment methods (KNET, Visa, Mastercard, plus KFAST/Apple Pay if enabled).
 
 ### Initiate Payment
 
 ```php
-use Greelogix\KPayment\Facades\KPayment;
+use Greelogix\KPay\Facades\KPay;
 
-$paymentData = KPayment::generatePaymentForm([
+$paymentData = KPay::generatePaymentForm([
     'amount' => 100.000,              // Amount with 3 decimal places
     'track_id' => 'ORDER-12345',      // Your order/tracking ID
     'currency' => '414',               // 414 = KWD, 840 = USD, etc.
@@ -225,15 +230,15 @@ $paymentData = KPayment::generatePaymentForm([
 // ]
 
 // Use the built-in payment form view
-return view('kpayment::payment.form', [
-    'formUrl' => $paymentData['form_url'],
-    'formData' => $paymentData['form_data'],
-]);
+return view('kpay::payment.form', [
+        'formUrl' => $paymentData['form_url'],
+        'formData' => $paymentData['form_data'],
+    ]);
 ```
 
 ### Payment Callback (Automatic)
 
-The package automatically handles payment callbacks at `/kpayment/response`. When payment completes:
+The package automatically handles payment callbacks at `/kpay/response`. When payment completes:
 
 1. Payment is validated and processed
 2. `PaymentStatusUpdated` event is fired
@@ -243,7 +248,7 @@ The package automatically handles payment callbacks at `/kpayment/response`. Whe
 
 ```php
 // app/Providers/EventServiceProvider.php
-use Greelogix\KPayment\Events\PaymentStatusUpdated;
+use Greelogix\KPay\Events\PaymentStatusUpdated;
 
 protected $listen = [
     PaymentStatusUpdated::class => [
@@ -256,7 +261,7 @@ protected $listen = [
 // app/Listeners/UpdateOrderStatus.php
 namespace App\Listeners;
 
-use Greelogix\KPayment\Events\PaymentStatusUpdated;
+use Greelogix\KPay\Events\PaymentStatusUpdated;
 use App\Models\Order;
 
 class UpdateOrderStatus
@@ -285,17 +290,17 @@ class UpdateOrderStatus
 ### Get Payment Status
 
 ```php
-use Greelogix\KPayment\Facades\KPayment;
+use Greelogix\KPay\Facades\KPay;
 
 // Get payment by track ID (your order ID)
-$payment = KPayment::getPaymentByTrackId('ORDER-12345');
+$payment = KPay::getPaymentByTrackId('ORDER-12345');
 
 if ($payment && $payment->isSuccessful()) {
     // Payment successful
 }
 
 // Get payment by transaction ID
-$payment = KPayment::getPaymentByTransId('TRANS123456');
+$payment = KPay::getPaymentByTransId('TRANS123456');
 
 // Check payment status
 if ($payment->isSuccessful()) {
@@ -310,10 +315,10 @@ if ($payment->isSuccessful()) {
 ### Process Refund
 
 ```php
-use Greelogix\KPayment\Facades\KPayment;
+use Greelogix\KPay\Facades\KPay;
 
 try {
-    $refundResult = KPayment::processRefund([
+    $refundResult = KPay::processRefund([
         'trans_id' => 'ORIGINAL_TRANSACTION_ID',
         'track_id' => 'REFUND-TRACK-ID',
         'amount' => 50.000,
@@ -322,7 +327,7 @@ try {
     if (isset($refundResult['result']) && $refundResult['result'] === 'CAPTURED') {
         // Refund successful
     }
-} catch (\Greelogix\KPayment\Exceptions\KnetException $e) {
+} catch (\Greelogix\KPay\Exceptions\KPayException $e) {
     // Handle error
 }
 ```
@@ -332,16 +337,16 @@ try {
 ### Response Routes
 
 The package automatically registers response routes:
-- `POST /kpayment/response` (route name: `kpayment.response`)
-- `GET /kpayment/response` (route name: `kpayment.response.get`)
+- `POST /kpay/response` (route name: `kpay.response`)
+- `GET /kpay/response` (route name: `kpay.response.get`)
 
 These routes are **CSRF exempt** and handle payment responses from KNET.
 
 ### Success and Error Pages
 
 The package includes built-in success and error pages:
-- `GET /payment/success` (route name: `kpayment.success`)
-- `GET /payment/error` (route name: `kpayment.error`)
+- `GET /payment/success` (route name: `kpay.success`)
+- `GET /payment/error` (route name: `kpay.error`)
 
 These pages display payment details and are automatically used by the ResponseController.
 
@@ -363,29 +368,71 @@ KNET returns the following parameters:
 The package fires the following event when payment status is updated:
 
 ```php
-\Greelogix\KPayment\Events\PaymentStatusUpdated
+\Greelogix\KPay\Events\PaymentStatusUpdated
 ```
 
 ## Configuration
 
-All configuration is done via `.env` file or `config/kpayment.php`:
+All configuration is done via `.env` file or `config/kpay.php`:
 
 ```php
-// config/kpayment.php
+// config/kpay.php
 return [
-    'tranportal_id' => env('KPAYMENT_TRANPORTAL_ID', ''),
-    'tranportal_password' => env('KPAYMENT_TRANPORTAL_PASSWORD', ''),
-    'resource_key' => env('KPAYMENT_RESOURCE_KEY', ''),
-    'base_url' => env('KPAYMENT_BASE_URL', 'https://kpaytest.com.kw/kpg/PaymentHTTP.htm'),
-    'test_mode' => env('KPAYMENT_TEST_MODE', true),
-    'response_url' => env('KPAYMENT_RESPONSE_URL', ''),
-    'error_url' => env('KPAYMENT_ERROR_URL', ''),
-    'currency' => env('KPAYMENT_CURRENCY', '414'),
-    'language' => env('KPAYMENT_LANGUAGE', 'EN'),
-    'kfast_enabled' => env('KPAYMENT_KFAST_ENABLED', false),
-    'apple_pay_enabled' => env('KPAYMENT_APPLE_PAY_ENABLED', false),
+    'tranportal_id' => env('KPAY_TRANPORTAL_ID', ''),
+    'tranportal_password' => env('KPAY_TRANPORTAL_PASSWORD', ''),
+    'resource_key' => env('KPAY_RESOURCE_KEY', ''),
+    'base_url' => env('KPAY_BASE_URL', 'https://kpaytest.com.kw/kpg/PaymentHTTP.htm'),
+    'test_mode' => env('KPAY_TEST_MODE', true),
+    'response_url' => env('KPAY_RESPONSE_URL', ''),
+    'error_url' => env('KPAY_ERROR_URL', ''),
+    'currency' => env('KPAY_CURRENCY', '414'),
+    'language' => env('KPAY_LANGUAGE', 'EN'),
+    'kfast_enabled' => env('KPAY_KFAST_ENABLED', false),
+    'apple_pay_enabled' => env('KPAY_APPLE_PAY_ENABLED', false),
+    'payment_table' => env('KPAY_PAYMENT_TABLE', 'kpay_payments'),
+    'create_payment_table' => env('KPAY_CREATE_TABLE', true),
 ];
 ```
+
+### Using Existing Payment/Transactions Table
+
+If you want to use your existing `payments` or `transactions` table:
+
+1. **Set in `.env`:**
+   ```env
+   KPAY_PAYMENT_TABLE=payments
+   # or
+   KPAY_PAYMENT_TABLE=transactions
+   
+   KPAY_CREATE_TABLE=false
+   ```
+
+2. **Ensure your table has these columns:**
+   - `id` (primary key)
+   - `payment_id` (string, nullable)
+   - `track_id` (string, nullable, indexed)
+   - `result` (string, nullable)
+   - `result_code` (string, nullable)
+   - `auth` (string, nullable)
+   - `ref` (string, nullable)
+   - `trans_id` (string, nullable)
+   - `post_date` (string, nullable)
+   - `udf1`, `udf2`, `udf3`, `udf4`, `udf5` (string, nullable)
+   - `amount` (decimal 15,3, nullable)
+   - `currency` (string, nullable)
+   - `payment_method` (string, nullable)
+   - `status` (string, default: 'pending', indexed)
+   - `response_data` (text, nullable)
+   - `request_data` (text, nullable)
+   - `created_at`, `updated_at` (timestamps)
+
+3. **Skip migration:**
+   ```bash
+   # Don't run: php artisan migrate
+   # Or set KPAY_CREATE_TABLE=false
+   ```
+
+**Note:** If your existing table has different column names, you may need to extend the `KPayPayment` model and override the `$fillable` array to match your schema.
 
 ## Complete Example
 
@@ -404,9 +451,9 @@ $order = Order::create([
 ### 2. Initiate Payment
 
 ```php
-use Greelogix\KPayment\Facades\KPayment;
+use Greelogix\KPay\Facades\KPay;
 
-$paymentData = KPayment::generatePaymentForm([
+$paymentData = KPay::generatePaymentForm([
     'amount' => $order->total,
     'track_id' => (string)$order->id,  // Use order ID as track_id
     'udf1' => (string)$order->id,      // Store order ID for event listener
@@ -414,7 +461,7 @@ $paymentData = KPayment::generatePaymentForm([
     'language' => 'EN',
 ]);
 
-return view('kpayment::payment.form', [
+return view('kpay::payment.form', [
     'formUrl' => $paymentData['form_url'],
     'formData' => $paymentData['form_data'],
 ]);
@@ -445,9 +492,9 @@ public function handle(PaymentStatusUpdated $event)
 
 ### Test Mode
 
-**Important:** KNET test environment does NOT require any credentials or API keys for testing.
+**Important:** KNET test environment does NOT require any credentials for testing.
 
-1. Set `KPAYMENT_TEST_MODE=true` in `.env`
+1. Set `KPAY_TEST_MODE=true` in `.env`
 2. **Leave credentials empty** (Tranportal ID, Password, and Resource Key can be empty for testing)
 3. Use test base URL: `https://kpaytest.com.kw/kpg/PaymentHTTP.htm`
 4. You can test the payment flow without any credentials
@@ -474,7 +521,7 @@ Common currency codes:
 
 ## Production Checklist
 
-- [ ] Set `KPAYMENT_TEST_MODE=false` in `.env`
+- [ ] Set `KPAY_TEST_MODE=false` in `.env`
 - [ ] **Configure all credentials** (Tranportal ID, Password, Resource Key)
   - These are **REQUIRED** for production
 - [ ] Use production credentials from your acquiring bank
@@ -499,7 +546,7 @@ Common currency codes:
 
 1. Clear route cache: `php artisan route:clear`
 2. Verify package is discovered: `php artisan package:discover`
-3. Check routes: `php artisan route:list | grep kpayment`
+3. Check routes: `php artisan route:list | grep kpay`
 
 ### Payment Response Not Received
 
@@ -531,10 +578,9 @@ For issues and questions:
 ### Version 2.0.0
 
 - Simplified package - removed admin panels and settings management
-- Payment methods now returned from service (tries API, falls back to standard)
+- Payment methods now returned from service (standard methods)
 - Configuration via config/env only
 - Core payment functionality only
-- Added `getPaymentMethodsFromApi()` method
 
 ### Version 1.0.0
 

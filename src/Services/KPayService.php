@@ -1,12 +1,12 @@
 <?php
 
-namespace Greelogix\KPayment\Services;
+namespace Greelogix\KPay\Services;
 
 use Illuminate\Support\Facades\Log;
-use Greelogix\KPayment\Exceptions\KnetException;
-use Greelogix\KPayment\Models\KnetPayment;
+use Greelogix\KPay\Exceptions\KPayException;
+use Greelogix\KPay\Models\KPayPayment;
 
-class KnetService
+class KPayService
 {
     protected string $tranportalId;
     protected string $tranportalPassword;
@@ -47,56 +47,12 @@ class KnetService
     }
 
     /**
-     * Get available payment methods from KNET API
-     * Attempts to fetch from API, falls back to standard methods
-     */
-    public function getPaymentMethodsFromApi(string $platform = 'web'): array
-    {
-        try {
-            // KNET API endpoint for payment methods (if available)
-            // Note: KNET may not have a dedicated endpoint, this is a placeholder
-            $apiUrl = str_replace('/PaymentHTTP.htm', '/api/payment-methods', $this->baseUrl);
-            
-            $params = [
-                'id' => $this->tranportalId,
-                'password' => $this->tranportalPassword,
-                'platform' => $platform,
-            ];
-
-            // Generate hash for API request
-            $hashString = $this->generateHashString($params);
-            $params['hash'] = $this->generateHash($hashString);
-
-            $response = \Illuminate\Support\Facades\Http::timeout(10)
-                ->asForm()
-                ->post($apiUrl, $params);
-
-            if ($response->successful()) {
-                $data = $this->parseResponse($response->body());
-                
-                // If API returns payment methods, format and return them
-                if (isset($data['payment_methods']) && is_array($data['payment_methods'])) {
-                    return $this->formatPaymentMethods($data['payment_methods'], $platform);
-                }
-            }
-        } catch (\Exception $e) {
-            Log::warning('KNET API: Could not fetch payment methods from API', [
-                'error' => $e->getMessage(),
-            ]);
-        }
-
-        // Fallback to standard methods if API call fails
-        return $this->getStandardPaymentMethods($platform);
-    }
-
-    /**
      * Get available payment methods
-     * Returns standard KNET payment methods (can be overridden to use API)
+     * Returns standard KNET payment methods
      */
     public function getPaymentMethods(string $platform = 'web'): array
     {
-        // Try to get from API first, fallback to standard
-        return $this->getPaymentMethodsFromApi($platform);
+        return $this->getStandardPaymentMethods($platform);
     }
 
     /**
@@ -147,29 +103,6 @@ class KnetService
         }));
     }
 
-    /**
-     * Format payment methods from API response
-     */
-    protected function formatPaymentMethods(array $apiMethods, string $platform): array
-    {
-        $formatted = [];
-        
-        foreach ($apiMethods as $method) {
-            $code = $method['code'] ?? $method['id'] ?? null;
-            $name = $method['name'] ?? $method['title'] ?? $code;
-            $methodPlatform = $method['platform'] ?? ['web', 'ios', 'android'];
-            
-            if ($code && in_array(strtolower($platform), array_map('strtolower', (array)$methodPlatform))) {
-                $formatted[] = [
-                    'code' => strtoupper($code),
-                    'name' => $name,
-                    'platform' => (array)$methodPlatform,
-                ];
-            }
-        }
-        
-        return $formatted;
-    }
 
     /**
      * Generate payment form data
@@ -209,7 +142,7 @@ class KnetService
         $params['hash'] = $this->generateHash($hashString);
 
         // Create payment record
-        $payment = KnetPayment::create([
+        $payment = KPayPayment::create([
             'track_id' => $trackId,
             'amount' => $amount,
             'currency' => $params['currencycode'],
@@ -249,20 +182,20 @@ class KnetService
     /**
      * Process payment response
      */
-    public function processResponse(array $response): KnetPayment
+    public function processResponse(array $response): KPayPayment
     {
         if (!$this->validateResponse($response)) {
-            throw new KnetException(__('kpayment.response.invalid_hash'));
+            throw new KPayException(__('kpay.response.invalid_hash'));
         }
 
         $trackId = $response['trackid'] ?? null;
         if (!$trackId) {
-            throw new KnetException(__('kpayment.response.track_id_not_found'));
+            throw new KPayException(__('kpay.response.track_id_not_found'));
         }
 
-        $payment = KnetPayment::where('track_id', $trackId)->first();
+        $payment = KPayPayment::where('track_id', $trackId)->first();
         if (!$payment) {
-            throw new KnetException(__('kpayment.response.payment_not_found'));
+            throw new KPayException(__('kpay.response.payment_not_found'));
         }
 
         $status = $this->determineStatus($response);
@@ -374,7 +307,7 @@ class KnetService
                 ->post($this->baseUrl, $params);
 
             if (!$response->successful()) {
-                throw new KnetException('Refund request failed: ' . $response->body());
+                throw new KPayException('Refund request failed: ' . $response->body());
             }
 
             // Parse response (KNET returns form-encoded or XML)
@@ -387,7 +320,7 @@ class KnetService
                 'error' => $e->getMessage(),
             ]);
 
-            throw new KnetException('Refund request failed: ' . $e->getMessage());
+            throw new KPayException('Refund request failed: ' . $e->getMessage());
         }
     }
 
@@ -410,17 +343,17 @@ class KnetService
     /**
      * Get payment by track ID
      */
-    public function getPaymentByTrackId(string $trackId): ?KnetPayment
+    public function getPaymentByTrackId(string $trackId): ?KPayPayment
     {
-        return KnetPayment::where('track_id', $trackId)->first();
+        return KPayPayment::where('track_id', $trackId)->first();
     }
 
     /**
      * Get payment by transaction ID
      */
-    public function getPaymentByTransId(string $transId): ?KnetPayment
+    public function getPaymentByTransId(string $transId): ?KPayPayment
     {
-        return KnetPayment::where('trans_id', $transId)->first();
+        return KPayPayment::where('trans_id', $transId)->first();
     }
 }
 

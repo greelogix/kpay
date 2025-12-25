@@ -1,14 +1,14 @@
 <?php
 
-namespace Greelogix\KPayment\Http\Controllers;
+namespace Greelogix\KPay\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Log;
-use Greelogix\KPayment\Facades\KPayment;
-use Greelogix\KPayment\Events\PaymentStatusUpdated;
-use Greelogix\KPayment\Exceptions\KnetException;
+use Greelogix\KPay\Facades\KPay;
+use Greelogix\KPay\Events\PaymentStatusUpdated;
+use Greelogix\KPay\Exceptions\KPayException;
 
 class ResponseController extends Controller
 {
@@ -26,7 +26,7 @@ class ResponseController extends Controller
             ]);
             
             // Process the response
-            $payment = KPayment::processResponse($response);
+            $payment = KPay::processResponse($response);
             
             // Fire event
             event(new PaymentStatusUpdated($payment));
@@ -37,7 +37,7 @@ class ResponseController extends Controller
             } else {
                 return $this->handleFailure($payment, $response);
             }
-        } catch (KnetException $e) {
+        } catch (KPayException $e) {
             Log::error('KNET Response Error', [
                 'response' => $request->all(),
                 'error' => $e->getMessage(),
@@ -52,7 +52,7 @@ class ResponseController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
             
-            return $this->handleError(new KnetException(__('kpayment.response.unexpected_error')));
+            return $this->handleError(new KPayException(__('kpay.response.unexpected_error')));
         }
     }
 
@@ -65,15 +65,15 @@ class ResponseController extends Controller
         // Priority: udf1 field > route > default URL
         if (!empty($payment->udf1)) {
             $successUrl = $payment->udf1;
-        } elseif (Route::has('kpayment.success')) {
-            $successUrl = route('kpayment.success');
+        } elseif (Route::has('kpay.success')) {
+            $successUrl = route('kpay.success');
         } else {
             $successUrl = url('/payment/success');
         }
         
         return redirect($successUrl)->with([
             'payment' => $payment,
-            'message' => __('kpayment.response.success'),
+            'message' => __('kpay.response.success'),
         ]);
     }
 
@@ -86,15 +86,15 @@ class ResponseController extends Controller
         // Priority: udf2 field > route > default URL
         if (!empty($payment->udf2)) {
             $errorUrl = $payment->udf2;
-        } elseif (Route::has('kpayment.error')) {
-            $errorUrl = route('kpayment.error');
+        } elseif (Route::has('kpay.error')) {
+            $errorUrl = route('kpay.error');
         } else {
             $errorUrl = url('/payment/error');
         }
         
         return redirect($errorUrl)->with([
             'payment' => $payment,
-            'message' => __('kpayment.response.failed'),
+            'message' => __('kpay.response.failed'),
         ]);
     }
 
@@ -104,15 +104,15 @@ class ResponseController extends Controller
     protected function handleError($exception)
     {
         // Priority: route > default URL
-        if (Route::has('kpayment.error')) {
-            $errorUrl = route('kpayment.error');
+        if (Route::has('kpay.error')) {
+            $errorUrl = route('kpay.error');
         } else {
             $errorUrl = url('/payment/error');
         }
         
-        $errorMessage = $exception instanceof KnetException 
+        $errorMessage = $exception instanceof KPayException 
             ? $exception->getMessage() 
-            : __('kpayment.response.error');
+            : __('kpay.response.error');
         
         return redirect($errorUrl)->with([
             'error' => $errorMessage,

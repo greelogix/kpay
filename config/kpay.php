@@ -16,7 +16,7 @@ return [
     | Configure via .env or config file.
     |
     */
-    'tranportal_id' => env('KPAYMENT_TRANPORTAL_ID', ''),
+    'tranportal_id' => env('KPAY_TRANPORTAL_ID', ''),
 
     /*
     |--------------------------------------------------------------------------
@@ -33,7 +33,7 @@ return [
     | Configure via .env or config file.
     |
     */
-    'tranportal_password' => env('KPAYMENT_TRANPORTAL_PASSWORD', ''),
+    'tranportal_password' => env('KPAY_TRANPORTAL_PASSWORD', ''),
 
     /*
     |--------------------------------------------------------------------------
@@ -50,7 +50,7 @@ return [
     | Configure via .env or config file.
     |
     */
-    'resource_key' => env('KPAYMENT_RESOURCE_KEY', ''),
+    'resource_key' => env('KPAY_RESOURCE_KEY', ''),
 
     /*
     |--------------------------------------------------------------------------
@@ -64,7 +64,7 @@ return [
     | Configure via .env or config file.
     |
     */
-    'base_url' => env('KPAYMENT_BASE_URL', 'https://kpaytest.com.kw/kpg/PaymentHTTP.htm'),
+    'base_url' => env('KPAY_BASE_URL', 'https://kpaytest.com.kw/kpg/PaymentHTTP.htm'),
 
     /*
     |--------------------------------------------------------------------------
@@ -80,7 +80,7 @@ return [
     | Configure via .env or config file.
     |
     */
-    'test_mode' => env('KPAYMENT_TEST_MODE', true),
+    'test_mode' => env('KPAY_TEST_MODE', true),
 
     /*
     |--------------------------------------------------------------------------
@@ -90,7 +90,7 @@ return [
     | URL where KNET will redirect after payment processing.
     |
     */
-    'response_url' => env('KPAYMENT_RESPONSE_URL', ''),
+    'response_url' => env('KPAY_RESPONSE_URL', ''),
 
     /*
     |--------------------------------------------------------------------------
@@ -100,7 +100,7 @@ return [
     | URL where KNET will redirect on payment errors.
     |
     */
-    'error_url' => env('KPAYMENT_ERROR_URL', ''),
+    'error_url' => env('KPAY_ERROR_URL', ''),
 
     /*
     |--------------------------------------------------------------------------
@@ -110,7 +110,7 @@ return [
     | Default currency code (ISO 4217).
     |
     */
-    'currency' => env('KPAYMENT_CURRENCY', '414'), // 414 = KWD
+    'currency' => env('KPAY_CURRENCY', '414'), // 414 = KWD
 
     /*
     |--------------------------------------------------------------------------
@@ -120,7 +120,7 @@ return [
     | Default language code (AR or EN).
     |
     */
-    'language' => env('KPAYMENT_LANGUAGE', 'EN'),
+    'language' => env('KPAY_LANGUAGE', 'EN'),
 
     /*
     |--------------------------------------------------------------------------
@@ -132,7 +132,7 @@ return [
     | 2 = Refund
     |
     */
-    'action' => env('KPAYMENT_ACTION', '1'),
+    'action' => env('KPAY_ACTION', '1'),
 
     /*
     |--------------------------------------------------------------------------
@@ -142,7 +142,7 @@ return [
     | Enable KFAST (KNET Fast Payment) support.
     |
     */
-    'kfast_enabled' => env('KPAYMENT_KFAST_ENABLED', false),
+    'kfast_enabled' => env('KPAY_KFAST_ENABLED', false),
 
     /*
     |--------------------------------------------------------------------------
@@ -152,7 +152,7 @@ return [
     | Enable Apple Pay support.
     |
     */
-    'apple_pay_enabled' => env('KPAYMENT_APPLE_PAY_ENABLED', false),
+    'apple_pay_enabled' => env('KPAY_APPLE_PAY_ENABLED', false),
 
     /*
     |--------------------------------------------------------------------------
@@ -162,7 +162,39 @@ return [
     | Apple Pay payment processing certificate path or content.
     |
     */
-    'apple_pay_certificate' => env('KPAYMENT_APPLE_PAY_CERTIFICATE', ''),
+    'apple_pay_certificate' => env('KPAY_APPLE_PAY_CERTIFICATE', ''),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Payment Table Name
+    |--------------------------------------------------------------------------
+    |
+    | Table name to store payment records.
+    | 
+    | Options:
+    | - 'kpay_payments' (default) - Creates new table
+    | - 'payments' - Use existing payments table
+    | - 'transactions' - Use existing transactions table
+    | - Any custom table name
+    |
+    | If using existing table, make sure it has the required columns:
+    | - id, payment_id, track_id, result, result_code, auth, ref, trans_id,
+    |   post_date, udf1-udf5, amount, currency, payment_method, status,
+    |   response_data, request_data, created_at, updated_at
+    |
+    */
+    'payment_table' => env('KPAY_PAYMENT_TABLE', 'kpay_payments'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Create Payment Table
+    |--------------------------------------------------------------------------
+    |
+    | Set to false if you want to use an existing table and skip migration.
+    | Set to true to create the payment table via migration.
+    |
+    */
+    'create_payment_table' => env('KPAY_CREATE_TABLE', true),
 
 ];
 

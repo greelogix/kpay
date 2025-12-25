@@ -1,8 +1,8 @@
 <?php
 
-namespace Greelogix\KPayment\Events;
+namespace Greelogix\KPay\Events;
 
-use Greelogix\KPayment\Models\KnetPayment;
+use Greelogix\KPay\Models\KPayPayment;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -10,12 +10,12 @@ class PaymentStatusUpdated
 {
     use Dispatchable, SerializesModels;
 
-    public KnetPayment $payment;
+    public KPayPayment $payment;
 
     /**
      * Create a new event instance.
      */
-    public function __construct(KnetPayment $payment)
+    public function __construct(KPayPayment $payment)
     {
         $this->payment = $payment;
     }

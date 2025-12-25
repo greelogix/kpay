@@ -1,12 +1,19 @@
 <?php
 
-namespace Greelogix\KPayment\Models;
+namespace Greelogix\KPay\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Config;
 
-class KnetPayment extends Model
+class KPayPayment extends Model
 {
-    protected $table = 'kpayment_payments';
+    /**
+     * Get the table name from config
+     */
+    public function getTable()
+    {
+        return Config::get('kpay.payment_table', 'kpay_payments');
+    }
 
     protected $fillable = [
         'payment_id',

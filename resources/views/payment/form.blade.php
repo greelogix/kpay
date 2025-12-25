@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ __('kpayment.payment.form.title') }}</title>
+    <title>{{ __('kpay.payment.form.title') }}</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -45,8 +45,8 @@
 <body>
     <div class="redirect-container">
         <div class="spinner"></div>
-        <div class="message">{{ __('kpayment.payment.form.redirecting') }}</div>
-        <div class="sub-message">{{ __('kpayment.payment.form.please_wait') }}</div>
+        <div class="message">{{ __('kpay.payment.form.redirecting') }}</div>
+        <div class="sub-message">{{ __('kpay.payment.form.please_wait') }}</div>
     </div>
 
     <form id="knetForm" method="POST" action="{{ $formUrl }}" style="display: none;">
