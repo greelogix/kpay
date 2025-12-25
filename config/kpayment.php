@@ -13,9 +13,7 @@ return [
     |
     | For PRODUCTION, this is REQUIRED and must be provided by your acquiring bank.
     |
-    | NOTE: This is a fallback value. The actual value should be configured
-    | in the admin panel at /admin/kpayment/settings
-    | Settings in admin panel take priority over this value.
+    | Configure via .env or config file.
     |
     */
     'tranportal_id' => env('KPAYMENT_TRANPORTAL_ID', ''),
@@ -32,7 +30,7 @@ return [
     |
     | For PRODUCTION, this is REQUIRED and must be provided by your acquiring bank.
     |
-    | NOTE: This is a fallback value. Configure in admin panel for production use.
+    | Configure via .env or config file.
     |
     */
     'tranportal_password' => env('KPAYMENT_TRANPORTAL_PASSWORD', ''),
@@ -49,7 +47,7 @@ return [
     |
     | For PRODUCTION, this is REQUIRED and must be provided by your acquiring bank.
     |
-    | NOTE: This is a fallback value. Configure in admin panel for production use.
+    | Configure via .env or config file.
     |
     */
     'resource_key' => env('KPAYMENT_RESOURCE_KEY', ''),
@@ -63,7 +61,7 @@ return [
     | Test: https://kpaytest.com.kw/kpg/PaymentHTTP.htm
     | Production: https://www.kpay.com.kw/kpg/PaymentHTTP.htm
     |
-    | NOTE: This is a fallback value. Configure in admin panel for production use.
+    | Configure via .env or config file.
     |
     */
     'base_url' => env('KPAYMENT_BASE_URL', 'https://kpaytest.com.kw/kpg/PaymentHTTP.htm'),
@@ -79,7 +77,7 @@ return [
     | (Tranportal ID, Password, or Resource Key). You can test payments
     | without configuring these fields.
     |
-    | NOTE: This is a fallback value. Configure in admin panel for production use.
+    | Configure via .env or config file.
     |
     */
     'test_mode' => env('KPAYMENT_TEST_MODE', true),
@@ -166,24 +164,5 @@ return [
     */
     'apple_pay_certificate' => env('KPAYMENT_APPLE_PAY_CERTIFICATE', ''),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Payment Model
-    |--------------------------------------------------------------------------
-    |
-    | The model class that will be used to store payment records.
-    |
-    */
-    'payment_model' => \Greelogix\KPayment\Models\KnetPayment::class,
-
-    /*
-    |--------------------------------------------------------------------------
-    | Payment Method Model
-    |--------------------------------------------------------------------------
-    |
-    | The model class that will be used to store payment methods.
-    |
-    */
-    'payment_method_model' => \Greelogix\KPayment\Models\PaymentMethod::class,
 ];
 

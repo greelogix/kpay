@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Facade;
 
 /**
  * @method static array getPaymentMethods(string $platform = 'web')
+ * @method static array getPaymentMethodsFromApi(string $platform = 'web')
  * @method static array generatePaymentForm(array $data)
  * @method static bool validateResponse(array $response)
  * @method static \Greelogix\KPayment\Models\KnetPayment processResponse(array $response)

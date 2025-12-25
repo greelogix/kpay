@@ -18,36 +18,20 @@ class KPaymentServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton('kpayment', function ($app) {
-            // Get settings from database only (no config/env fallbacks)
-            $tranportalId = \Greelogix\KPayment\Models\SiteSetting::getValue('kpayment_tranportal_id', '');
-            $tranportalPassword = \Greelogix\KPayment\Models\SiteSetting::getValue('kpayment_tranportal_password', '');
-            $resourceKey = \Greelogix\KPayment\Models\SiteSetting::getValue('kpayment_resource_key', '');
-            $baseUrl = \Greelogix\KPayment\Models\SiteSetting::getValue('kpayment_base_url', 'https://kpaytest.com.kw/kpg/PaymentHTTP.htm');
-            $testMode = \Greelogix\KPayment\Models\SiteSetting::getValue('kpayment_test_mode', '1');
-            $responseUrl = \Greelogix\KPayment\Models\SiteSetting::getValue('kpayment_response_url', '');
-            $errorUrl = \Greelogix\KPayment\Models\SiteSetting::getValue('kpayment_error_url', '');
-            $currency = \Greelogix\KPayment\Models\SiteSetting::getValue('kpayment_currency', '414');
-            $language = \Greelogix\KPayment\Models\SiteSetting::getValue('kpayment_language', 'EN');
-            $kfastEnabled = \Greelogix\KPayment\Models\SiteSetting::getValue('kpayment_kfast_enabled', '0');
-            $applePayEnabled = \Greelogix\KPayment\Models\SiteSetting::getValue('kpayment_apple_pay_enabled', '0');
-            
-            // Convert to boolean
-            $testMode = filter_var($testMode, FILTER_VALIDATE_BOOLEAN);
-            $kfastEnabled = filter_var($kfastEnabled, FILTER_VALIDATE_BOOLEAN);
-            $applePayEnabled = filter_var($applePayEnabled, FILTER_VALIDATE_BOOLEAN);
+            $config = $app['config']->get('kpayment');
             
             return new KnetService(
-                $tranportalId,
-                $tranportalPassword,
-                $resourceKey,
-                $baseUrl,
-                $testMode,
-                $responseUrl,
-                $errorUrl,
-                $currency,
-                $language,
-                $kfastEnabled,
-                $applePayEnabled
+                $config['tranportal_id'] ?? '',
+                $config['tranportal_password'] ?? '',
+                $config['resource_key'] ?? '',
+                $config['base_url'] ?? 'https://kpaytest.com.kw/kpg/PaymentHTTP.htm',
+                $config['test_mode'] ?? true,
+                $config['response_url'] ?? '',
+                $config['error_url'] ?? '',
+                $config['currency'] ?? '414',
+                $config['language'] ?? 'EN',
+                $config['kfast_enabled'] ?? false,
+                $config['apple_pay_enabled'] ?? false
             );
         });
     }

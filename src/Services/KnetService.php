@@ -5,8 +5,6 @@ namespace Greelogix\KPayment\Services;
 use Illuminate\Support\Facades\Log;
 use Greelogix\KPayment\Exceptions\KnetException;
 use Greelogix\KPayment\Models\KnetPayment;
-use Greelogix\KPayment\Models\PaymentMethod;
-use Greelogix\KPayment\Models\SiteSetting;
 
 class KnetService
 {
@@ -49,24 +47,128 @@ class KnetService
     }
 
     /**
+     * Get available payment methods from KNET API
+     * Attempts to fetch from API, falls back to standard methods
+     */
+    public function getPaymentMethodsFromApi(string $platform = 'web'): array
+    {
+        try {
+            // KNET API endpoint for payment methods (if available)
+            // Note: KNET may not have a dedicated endpoint, this is a placeholder
+            $apiUrl = str_replace('/PaymentHTTP.htm', '/api/payment-methods', $this->baseUrl);
+            
+            $params = [
+                'id' => $this->tranportalId,
+                'password' => $this->tranportalPassword,
+                'platform' => $platform,
+            ];
+
+            // Generate hash for API request
+            $hashString = $this->generateHashString($params);
+            $params['hash'] = $this->generateHash($hashString);
+
+            $response = \Illuminate\Support\Facades\Http::timeout(10)
+                ->asForm()
+                ->post($apiUrl, $params);
+
+            if ($response->successful()) {
+                $data = $this->parseResponse($response->body());
+                
+                // If API returns payment methods, format and return them
+                if (isset($data['payment_methods']) && is_array($data['payment_methods'])) {
+                    return $this->formatPaymentMethods($data['payment_methods'], $platform);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('KNET API: Could not fetch payment methods from API', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Fallback to standard methods if API call fails
+        return $this->getStandardPaymentMethods($platform);
+    }
+
+    /**
      * Get available payment methods
+     * Returns standard KNET payment methods (can be overridden to use API)
      */
     public function getPaymentMethods(string $platform = 'web'): array
     {
-        $query = PaymentMethod::active();
-        
+        // Try to get from API first, fallback to standard
+        return $this->getPaymentMethodsFromApi($platform);
+    }
+
+    /**
+     * Get standard payment methods (fallback)
+     */
+    protected function getStandardPaymentMethods(string $platform = 'web'): array
+    {
+        // Standard KNET payment methods
+        $methods = [
+            [
+                'code' => 'KNET',
+                'name' => 'KNET Card',
+                'platform' => ['web', 'ios', 'android'],
+            ],
+            [
+                'code' => 'VISA',
+                'name' => 'Visa',
+                'platform' => ['web', 'ios', 'android'],
+            ],
+            [
+                'code' => 'MASTERCARD',
+                'name' => 'Mastercard',
+                'platform' => ['web', 'ios', 'android'],
+            ],
+        ];
+
+        // Add KFAST if enabled
+        if ($this->kfastEnabled) {
+            $methods[] = [
+                'code' => 'KFAST',
+                'name' => 'KFAST',
+                'platform' => ['web', 'ios', 'android'],
+            ];
+        }
+
+        // Add Apple Pay if enabled
+        if ($this->applePayEnabled) {
+            $methods[] = [
+                'code' => 'APPLE_PAY',
+                'name' => 'Apple Pay',
+                'platform' => ['ios', 'web'],
+            ];
+        }
+
         // Filter by platform
-        $column = match(strtolower($platform)) {
-            'ios' => 'is_ios_enabled',
-            'android' => 'is_android_enabled',
-            'web' => 'is_web_enabled',
-            default => 'is_web_enabled',
-        };
+        return array_values(array_filter($methods, function ($method) use ($platform) {
+            return in_array(strtolower($platform), array_map('strtolower', $method['platform']));
+        }));
+    }
+
+    /**
+     * Format payment methods from API response
+     */
+    protected function formatPaymentMethods(array $apiMethods, string $platform): array
+    {
+        $formatted = [];
         
-        return $query->where($column, true)
-            ->orderBy('sort_order')
-            ->get()
-            ->toArray();
+        foreach ($apiMethods as $method) {
+            $code = $method['code'] ?? $method['id'] ?? null;
+            $name = $method['name'] ?? $method['title'] ?? $code;
+            $methodPlatform = $method['platform'] ?? ['web', 'ios', 'android'];
+            
+            if ($code && in_array(strtolower($platform), array_map('strtolower', (array)$methodPlatform))) {
+                $formatted[] = [
+                    'code' => strtoupper($code),
+                    'name' => $name,
+                    'platform' => (array)$methodPlatform,
+                ];
+            }
+        }
+        
+        return $formatted;
     }
 
     /**
