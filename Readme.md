@@ -27,7 +27,7 @@ A production-ready Laravel package for KNET payment gateway integration with sup
 
 ## Installation
 
-### Step 1: Install via Composer
+### Step 1: Install Package via Composer
 
 #### Option A: Install from Git Repository (Recommended)
 
@@ -90,13 +90,26 @@ A production-ready Laravel package for KNET payment gateway integration with sup
 composer require greelogix/kpayment-laravel
 ```
 
-### Step 2: Publish and Run Migrations
+### Step 2: Publish Package Assets
+
+Publish migrations, config, and views (if needed):
 
 ```bash
-# Publish migrations
+# Publish migrations (required)
 php artisan vendor:publish --tag=kpayment-migrations
 
-# Run migrations
+# Publish config file (optional - only if you want to customize)
+php artisan vendor:publish --tag=kpayment-config
+
+# Publish views (optional - only if you want to customize admin views)
+php artisan vendor:publish --tag=kpayment-views
+```
+
+### Step 3: Run Migrations
+
+Run the database migrations to create the required tables:
+
+```bash
 php artisan migrate
 ```
 
@@ -105,7 +118,9 @@ This will create the following tables:
 - `kpayment_payments` - Stores payment transactions
 - `kpayment_payment_methods` - Stores available payment methods
 
-### Step 3: Seed Default Settings
+### Step 4: Seed Default Settings
+
+Seed the default KNET settings:
 
 ```bash
 php artisan db:seed --class="Greelogix\KPayment\Database\Seeders\DefaultSettingsSeeder"
@@ -127,11 +142,48 @@ This will populate default KNET settings:
 - **For Production:** You must configure all credentials provided by your acquiring bank.
 - Settings will also be automatically created when you first visit the admin settings page.
 
-### Step 4: Configure Settings in Admin Panel
+### Step 5: Seed Payment Methods
+
+**Option A: Using Seeder**
+
+```bash
+php artisan db:seed --class="Greelogix\KPayment\Database\Seeders\PaymentMethodSeeder"
+```
+
+**Option B: Using Admin Panel (Recommended)**
+
+1. Visit `/admin/kpayment/payment-methods`
+2. Click "Seed Default Methods" button
+3. Default payment methods will be created (KNET, Visa, Mastercard, Apple Pay, KFAST)
+4. You can then enable/disable methods and configure platform availability
+
+### Step 6: Verify Installation
+
+After installation, verify everything is working:
+
+```bash
+# Clear all caches
+php artisan config:clear
+php artisan cache:clear
+php artisan route:clear
+php artisan view:clear
+
+# Verify routes are registered
+php artisan route:list | grep kpayment
+
+# You should see routes like:
+# kpayment.response
+# kpayment.admin.settings.index
+# kpayment.admin.payment-methods.index
+```
+
+### Step 7: Configure Settings in Admin Panel
 
 **⚠️ Important: All KNET settings are managed through the admin panel (site settings table), not directly from `.env`!**
 
 1. **Ensure authentication is configured** (admin routes require `auth` middleware)
+   
+   **Note:** You must be logged in to access admin pages. If you don't have authentication set up, install Laravel Breeze, Jetstream, or set up your own authentication system.
 
 2. **Visit the admin settings page:**
    ```
@@ -168,21 +220,6 @@ This will populate default KNET settings:
 php artisan config:clear
 php artisan cache:clear
 ```
-
-### Step 5: Seed Payment Methods
-
-**Option A: Using Seeder**
-
-```bash
-php artisan db:seed --class="Greelogix\KPayment\Database\Seeders\PaymentMethodSeeder"
-```
-
-**Option B: Using Admin Panel (Recommended)**
-
-1. Visit `/admin/kpayment/payment-methods`
-2. Click "Seed Default Methods" button
-3. Default payment methods will be created (KNET, Visa, Mastercard, Apple Pay, KFAST)
-4. You can then enable/disable methods and configure platform availability
 
 ## Configuration Priority
 
@@ -552,6 +589,67 @@ Refer to your acquiring bank for test card numbers. Test cards typically have:
 - CVV: Any 3 digits
 
 ## Troubleshooting
+
+### Routes Not Working / Admin Pages Not Showing
+
+If you don't see the admin pages or routes after installation:
+
+1. **Verify ServiceProvider is registered:**
+
+   Check if the package is auto-discovered. Run:
+   ```bash
+   php artisan package:discover
+   ```
+
+   Or manually register in `config/app.php`:
+   ```php
+   'providers' => [
+       // ...
+       Greelogix\KPayment\KPaymentServiceProvider::class,
+   ],
+   ```
+
+2. **Clear all caches:**
+   ```bash
+   php artisan config:clear
+   php artisan cache:clear
+   php artisan route:clear
+   php artisan view:clear
+   composer dump-autoload
+   ```
+
+3. **Check if routes are registered:**
+   ```bash
+   php artisan route:list | grep kpayment
+   ```
+   
+   You should see routes like:
+   - `kpayment.response`
+   - `kpayment.admin.settings.index`
+   - `kpayment.admin.payment-methods.index`
+
+4. **Verify authentication is configured:**
+   
+   Admin routes require authentication. Ensure you have:
+   - Authentication system set up (Laravel Breeze, Jetstream, or custom)
+   - User logged in to access `/admin/kpayment/settings`
+
+5. **Check if migrations ran:**
+   ```bash
+   php artisan migrate:status
+   ```
+   
+   Ensure these migrations ran:
+   - `2024_01_01_000001_create_kpayment_site_settings_table`
+   - `2024_01_01_000002_create_kpayment_payments_table`
+   - `2024_01_01_000003_create_kpayment_payment_methods_table`
+
+6. **Verify views are loaded:**
+   
+   The package views should be available. If you get view errors, publish them:
+   ```bash
+   php artisan vendor:publish --tag=kpayment-views
+   ```
 
 ### Settings Not Updating
 

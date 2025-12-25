@@ -68,6 +68,10 @@ class KPaymentServiceProvider extends ServiceProvider
             __DIR__ . '/../database/migrations' => database_path('migrations'),
         ], 'kpayment-migrations');
 
+        $this->publishes([
+            __DIR__ . '/../resources/views' => resource_path('views/vendor/kpayment'),
+        ], 'kpayment-views');
+
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'kpayment');
     }
 }
