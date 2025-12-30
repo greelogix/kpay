@@ -572,6 +572,63 @@ class KPayService
     }
 
     /**
+     * Get payment form data from payment record
+     * Extracts and validates form data for redirect
+     * 
+     * @param KPayPayment $payment
+     * @return array Form data ready for KNET submission
+     * @throws KPayException
+     */
+    public function getPaymentFormData(KPayPayment $payment): array
+    {
+        $formData = $payment->request_data;
+        
+        // Handle if request_data is stored as JSON string
+        if (is_string($formData)) {
+            $formData = json_decode($formData, true) ?? [];
+        }
+        
+        // If still empty, try to get from array cast
+        if (empty($formData) && is_array($payment->request_data)) {
+            $formData = $payment->request_data;
+        }
+        
+        // Validate that form data exists
+        if (empty($formData) || !is_array($formData)) {
+            throw new KPayException('Payment request data not found');
+        }
+        
+        // Remove payment_id from form data (internal field, not for KNET)
+        unset($formData['payment_id']);
+        
+        // Validate required KNET parameters
+        $requiredParams = ['action', 'amt', 'trackid', 'responseURL', 'errorURL', 'hash'];
+        $missingParams = array_diff($requiredParams, array_keys($formData));
+        
+        if (!empty($missingParams)) {
+            throw new KPayException('Payment request is incomplete. Missing: ' . implode(', ', $missingParams));
+        }
+        
+        return $formData;
+    }
+
+    /**
+     * Get base URL for KNET payment gateway
+     * 
+     * @return string
+     */
+    public function getBaseUrl(): string
+    {
+        if (!empty($this->baseUrl)) {
+            return $this->baseUrl;
+        }
+        
+        return $this->testMode 
+            ? 'https://kpaytest.com.kw/kpg/PaymentHTTP.htm'
+            : 'https://www.kpay.com.kw/kpg/PaymentHTTP.htm';
+    }
+
+    /**
      * Inquiry transaction status from KNET
      * According to KNET documentation, this should be used to check incomplete orders
      * 

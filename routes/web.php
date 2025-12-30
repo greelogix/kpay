@@ -2,12 +2,20 @@
 
 use Illuminate\Support\Facades\Route;
 use Greelogix\KPay\Http\Controllers\ResponseController;
-use Greelogix\KPay\Facades\KPay;
-use Greelogix\KPay\Models\KPayPayment;
+use Greelogix\KPay\Http\Controllers\RedirectController;
 
-// Ensure routes are loaded within web middleware group
+// Health check route
+Route::get('kpay/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'package' => 'KPay',
+        'version' => '2.0.0',
+    ]);
+})->name('kpay.health');
+
+// Payment routes
 Route::middleware('web')->group(function () {
-    // Payment response route (CSRF exempt)
+    // Payment response routes (CSRF exempt)
     Route::post('kpay/response', [ResponseController::class, 'handle'])
         ->name('kpay.response')
         ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
@@ -17,27 +25,8 @@ Route::middleware('web')->group(function () {
         ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
     // Payment redirect route - auto-submits form to KNET
-    Route::get('kpay/redirect/{paymentId}', function ($paymentId) {
-        $payment = KPayPayment::findOrFail($paymentId);
-        $formData = $payment->request_data ?? [];
-        
-        // Remove payment_id from form data
-        unset($formData['payment_id']);
-        
-        // Get base URL from config
-        $baseUrl = config('kpay.base_url');
-        if (empty($baseUrl)) {
-            $testMode = config('kpay.test_mode', true);
-            $baseUrl = $testMode 
-                ? 'https://kpaytest.com.kw/kpg/PaymentHTTP.htm'
-                : 'https://www.kpay.com.kw/kpg/PaymentHTTP.htm';
-        }
-        
-        return view('kpay::payment.form', [
-            'formUrl' => $baseUrl,
-            'formData' => $formData,
-        ]);
-    })->name('kpay.redirect');
+    Route::get('kpay/redirect/{paymentId}', [RedirectController::class, 'redirect'])
+        ->name('kpay.redirect');
 
     // Payment success and error pages
     Route::get('payment/success', function () {

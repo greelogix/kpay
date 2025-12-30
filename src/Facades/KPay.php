@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Facade;
  * @method static array inquiryTransaction(string $trackId)
  * @method static \Greelogix\KPay\Models\KPayPayment|null getPaymentByTrackId(string $trackId)
  * @method static \Greelogix\KPay\Models\KPayPayment|null getPaymentByTransId(string $transId)
+ * @method static array getPaymentFormData(\Greelogix\KPay\Models\KPayPayment $payment)
+ * @method static string getBaseUrl()
  *
  * @see \Greelogix\KPay\Services\KPayService
  */

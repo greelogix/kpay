@@ -50,7 +50,9 @@
             </div>
             <h1 class="mb-3">{{ __('kpay.payment.error.heading') }}</h1>
             <p class="text-muted mb-4">
-                @if(session('error'))
+                @if(isset($error))
+                    {{ $error }}
+                @elseif(session('error'))
                     {{ session('error') }}
                 @elseif(session('message'))
                     {{ session('message') }}
