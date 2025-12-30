@@ -58,13 +58,15 @@ return [
     |--------------------------------------------------------------------------
     |
     | KNET Payment Gateway base URL.
-    | Test: https://kpaytest.com.kw/kpg/PaymentHTTP.htm
-    | Production: https://www.kpay.com.kw/kpg/PaymentHTTP.htm
+    | 
+    | AUTO-MANAGED: If empty, automatically set based on KPAY_TEST_MODE:
+    | - Test: https://kpaytest.com.kw/kpg/PaymentHTTP.htm
+    | - Production: https://www.kpay.com.kw/kpg/PaymentHTTP.htm
     |
-    | Configure via .env or config file.
+    | Only set this if you need a custom URL.
     |
     */
-    'base_url' => env('KPAY_BASE_URL', 'https://kpaytest.com.kw/kpg/PaymentHTTP.htm'),
+    'base_url' => env('KPAY_BASE_URL', ''),
 
     /*
     |--------------------------------------------------------------------------
@@ -73,11 +75,17 @@ return [
     |
     | Set to true for test mode, false for production.
     |
-    | IMPORTANT: In test mode, KNET does NOT require any credentials
-    | (Tranportal ID, Password, or Resource Key). You can test payments
-    | without configuring these fields.
+    | IMPORTANT: This is the PRIMARY setting that controls:
+    | - Base URL (auto-set to test or production)
+    | - Whether credentials are required
     |
-    | Configure via .env or config file.
+    | In test mode:
+    | - Base URL: https://kpaytest.com.kw/kpg/PaymentHTTP.htm
+    | - Credentials NOT required
+    |
+    | In production mode:
+    | - Base URL: https://www.kpay.com.kw/kpg/PaymentHTTP.htm
+    | - Credentials REQUIRED
     |
     */
     'test_mode' => env('KPAY_TEST_MODE', true),
@@ -89,11 +97,12 @@ return [
     |
     | URL where KNET will redirect after payment processing.
     | 
-    | IMPORTANT: This is REQUIRED by KNET. Must be a publicly accessible
-    | absolute URL (e.g., https://yoursite.com/kpay/response).
+    | AUTO-MANAGED: If empty, automatically generated from APP_URL + /kpay/response
     | 
-    | The package provides a default route at /kpay/response, so you can use:
-    | https://yoursite.com/kpay/response
+    | IMPORTANT: Must be a publicly accessible absolute URL.
+    | The package provides a default route at /kpay/response.
+    |
+    | Only set this if you need a custom response URL.
     |
     */
     'response_url' => env('KPAY_RESPONSE_URL', ''),
@@ -105,12 +114,12 @@ return [
     |
     | URL where KNET will redirect on payment errors.
     | 
-    | IMPORTANT: This is REQUIRED by KNET. Must be a publicly accessible
-    | absolute URL (e.g., https://yoursite.com/kpay/response).
+    | AUTO-MANAGED: If empty, automatically generated from APP_URL + /kpay/response
     | 
-    | You can use the same URL as response_url, or a different error page.
-    | The package provides a default route at /kpay/response, so you can use:
-    | https://yoursite.com/kpay/response
+    | IMPORTANT: Must be a publicly accessible absolute URL.
+    | The package provides a default route at /kpay/response.
+    |
+    | Only set this if you need a custom error URL.
     |
     */
     'error_url' => env('KPAY_ERROR_URL', ''),

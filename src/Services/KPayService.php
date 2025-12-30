@@ -37,8 +37,17 @@ class KPayService
         $this->tranportalId = $tranportalId;
         $this->tranportalPassword = $tranportalPassword;
         $this->resourceKey = $resourceKey;
-        $this->baseUrl = rtrim($baseUrl, '/');
         $this->testMode = $testMode;
+        
+        // Auto-set base URL based on test mode if not provided
+        if (empty($baseUrl)) {
+            $this->baseUrl = $testMode 
+                ? 'https://kpaytest.com.kw/kpg/PaymentHTTP.htm'
+                : 'https://www.kpay.com.kw/kpg/PaymentHTTP.htm';
+        } else {
+            $this->baseUrl = rtrim($baseUrl, '/');
+        }
+        
         $this->responseUrl = $responseUrl;
         $this->errorUrl = $errorUrl;
         $this->currency = $currency;
@@ -111,6 +120,19 @@ class KPayService
      */
     public function generatePaymentForm(array $data): array
     {
+        // Validate production credentials
+        if (!$this->testMode) {
+            if (empty($this->tranportalId)) {
+                throw new KPayException('KPAY_TRANPORTAL_ID is required for production mode. Please configure it in .env');
+            }
+            if (empty($this->tranportalPassword)) {
+                throw new KPayException('KPAY_TRANPORTAL_PASSWORD is required for production mode. Please configure it in .env');
+            }
+            if (empty($this->resourceKey)) {
+                throw new KPayException('KPAY_RESOURCE_KEY is required for production mode. Please configure it in .env');
+            }
+        }
+
         $trackId = $data['track_id'] ?? $this->generateTrackId();
         $amount = number_format((float)($data['amount'] ?? 0), 3, '.', '');
 
@@ -120,11 +142,11 @@ class KPayService
 
         // Validate required URLs
         if (empty($responseUrl)) {
-            throw new KPayException('responseURL is required for KNET payment. Please configure KPAY_RESPONSE_URL in .env');
+            throw new KPayException('responseURL is required for KNET payment. Please set APP_URL in .env (auto-generated) or configure KPAY_RESPONSE_URL');
         }
 
         if (empty($errorUrl)) {
-            throw new KPayException('errorURL is required for KNET payment. Please configure KPAY_ERROR_URL in .env');
+            throw new KPayException('errorURL is required for KNET payment. Please set APP_URL in .env (auto-generated) or configure KPAY_ERROR_URL');
         }
 
         // Ensure URLs are absolute

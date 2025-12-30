@@ -134,49 +134,62 @@ Then skip the migration. Make sure your existing table has the required columns 
 
 ### Step 5: Configure Settings
 
-Configure via `.env` file:
+The package automatically manages URLs based on `KPAY_TEST_MODE`. You only need to configure the essentials:
+
+#### **For Development/Testing:**
 
 ```env
-# KNET Credentials (not required for testing)
+# Mode (controls everything automatically)
+KPAY_TEST_MODE=true
+
+# Your app URL (for auto-generating response URLs)
+APP_URL=https://your-test-domain.com
+
+# Credentials (optional for test mode)
 KPAY_TRANPORTAL_ID=
 KPAY_TRANPORTAL_PASSWORD=
 KPAY_RESOURCE_KEY=
-
-# KNET URLs
-KPAY_BASE_URL=https://kpaytest.com.kw/kpg/PaymentHTTP.htm
-KPAY_RESPONSE_URL=https://yoursite.com/kpay/response
-KPAY_ERROR_URL=https://yoursite.com/payment/error
-
-# Payment Settings
-KPAY_TEST_MODE=true
-KPAY_CURRENCY=414
-KPAY_LANGUAGE=EN
-KPAY_KFAST_ENABLED=false
-KPAY_APPLE_PAY_ENABLED=false
-
-# REQUIRED: Response and Error URLs (must be publicly accessible)
-KPAY_RESPONSE_URL=https://yoursite.com/kpay/response
-KPAY_ERROR_URL=https://yoursite.com/kpay/response
 ```
 
-**IMPORTANT - Response URLs are REQUIRED:**
-- `KPAY_RESPONSE_URL` and `KPAY_ERROR_URL` are **MANDATORY** for KNET
-- Must be **absolute URLs** (starting with `https://`)
-- Must be **publicly accessible** (not localhost)
-- Can use the same URL for both (the package handles success/error routing)
-- The package provides default route: `/kpay/response`
+**What happens automatically:**
+- Base URL → `https://kpaytest.com.kw/kpg/PaymentHTTP.htm`
+- Response URL → `{APP_URL}/kpay/response`
+- Error URL → `{APP_URL}/kpay/response`
+- Credentials → Not required
 
-**For Testing:**
-- Leave credentials empty (not required for test mode)
-- Use test URL: `https://kpaytest.com.kw/kpg/PaymentHTTP.htm`
-- Set `KPAY_TEST_MODE=true`
-- **Still need to configure response URLs** (use your public test domain)
+#### **For Production:**
 
-**For Production:**
-- Configure all credentials (required)
-- Use production URL: `https://www.kpay.com.kw/kpg/PaymentHTTP.htm`
-- Set `KPAY_TEST_MODE=false`
-- **Must configure response URLs** (use your production domain)
+```env
+# Mode (controls everything automatically)
+KPAY_TEST_MODE=false
+
+# Your app URL (for auto-generating response URLs)
+APP_URL=https://yourdomain.com
+
+# Credentials (REQUIRED for production)
+KPAY_TRANPORTAL_ID=your_production_id
+KPAY_TRANPORTAL_PASSWORD=your_production_password
+KPAY_RESOURCE_KEY=your_production_resource_key
+```
+
+**What happens automatically:**
+- Base URL → `https://www.kpay.com.kw/kpg/PaymentHTTP.htm`
+- Response URL → `{APP_URL}/kpay/response`
+- Error URL → `{APP_URL}/kpay/response`
+- Credentials → Required (will throw error if missing)
+
+#### **Optional Overrides (only if needed):**
+
+If you need custom URLs, you can override:
+
+```env
+# Only set these if you need custom URLs
+KPAY_BASE_URL=https://custom-knet-url.com
+KPAY_RESPONSE_URL=https://custom-response-url.com
+KPAY_ERROR_URL=https://custom-error-url.com
+```
+
+**Note:** The package automatically generates response URLs from `APP_URL`. Make sure `APP_URL` is set correctly in your `.env` file.
 
 ### Step 6: Clear Cache
 

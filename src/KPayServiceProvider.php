@@ -19,15 +19,34 @@ class KPayServiceProvider extends ServiceProvider
 
         $this->app->singleton('kpay', function ($app) {
             $config = $app['config']->get('kpay');
+            $testMode = $config['test_mode'] ?? true;
+            
+            // Auto-generate response URLs if not provided
+            $responseUrl = $config['response_url'] ?? '';
+            $errorUrl = $config['error_url'] ?? '';
+            
+            // If URLs not provided, try to generate from app URL
+            if (empty($responseUrl) || empty($errorUrl)) {
+                $appUrl = $app['config']->get('app.url', '');
+                if (!empty($appUrl)) {
+                    $baseResponseUrl = rtrim($appUrl, '/') . '/kpay/response';
+                    if (empty($responseUrl)) {
+                        $responseUrl = $baseResponseUrl;
+                    }
+                    if (empty($errorUrl)) {
+                        $errorUrl = $baseResponseUrl;
+                    }
+                }
+            }
             
             return new KPayService(
                 $config['tranportal_id'] ?? '',
                 $config['tranportal_password'] ?? '',
                 $config['resource_key'] ?? '',
-                $config['base_url'] ?? 'https://kpaytest.com.kw/kpg/PaymentHTTP.htm',
-                $config['test_mode'] ?? true,
-                $config['response_url'] ?? '',
-                $config['error_url'] ?? '',
+                $config['base_url'] ?? '', // Empty = auto-detect based on test_mode
+                $testMode,
+                $responseUrl,
+                $errorUrl,
                 $config['currency'] ?? '414',
                 $config['language'] ?? 'EN',
                 $config['kfast_enabled'] ?? false,
