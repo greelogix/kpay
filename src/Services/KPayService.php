@@ -233,6 +233,24 @@ class KPayService
             }
         }
 
+        // Log form parameters for debugging (without sensitive data)
+        $logParams = $params;
+        if (isset($logParams['password'])) {
+            $logParams['password'] = '***';
+        }
+        if (isset($logParams['hash'])) {
+            $logParams['hash'] = substr($params['hash'], 0, 10) . '...';
+        }
+        Log::info('KPay: Payment form generated', [
+            'track_id' => $trackId,
+            'amount' => $amount,
+            'response_url' => $responseUrl,
+            'error_url' => $errorUrl,
+            'test_mode' => $this->testMode,
+            'params_keys' => array_keys($params),
+            'params_safe' => $logParams,
+        ]);
+
         // Generate hash (resource_key is required for hash generation)
         // In test mode, if resource_key is empty, we still need to generate hash with empty string
         $hashString = $this->generateHashString($params);
