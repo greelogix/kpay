@@ -28,21 +28,23 @@ class ResponseController extends Controller
             // Check if this is a validation request (no payment parameters)
             $hasPaymentParams = isset($response['trackid']) || isset($response['trackId']) || 
                                isset($response['paymentid']) || isset($response['PaymentID']) ||
-                               isset($response['result']) || isset($response['Result']);
+                               isset($response['result']) || isset($response['Result']) ||
+                               isset($response['hash']) || isset($response['Hash']);
             
-            if (!$hasPaymentParams && empty($response)) {
+            // If no payment parameters, treat as validation request
+            if (!$hasPaymentParams) {
                 // Return 200 OK to indicate the endpoint is accessible
                 // This allows KNET to validate the responseURL before processing payment
                 Log::info('KNET Response URL Validation Request', [
                     'method' => $request->method(),
                     'ip' => $request->ip(),
                     'user_agent' => $request->userAgent(),
+                    'params' => array_keys($response),
                 ]);
                 
-                return response()->json([
-                    'status' => 'ok',
-                    'message' => 'KPay response endpoint is accessible',
-                ], 200);
+                // Return plain text or JSON response (KNET just needs to see 200 OK)
+                return response('OK', 200)
+                    ->header('Content-Type', 'text/plain');
             }
             
             // Log incoming response for debugging (mandatory per KNET best practices)
