@@ -194,12 +194,12 @@ class KPayService
             );
         }
 
-        // Warn if using ngrok (may have limitations)
-        if (strpos($responseUrl, 'ngrok') !== false) {
-            Log::warning('KPay: Using ngrok URL - KNET servers may not be able to access it due to ngrok free tier limitations', [
+        // Warn if using tunneling services (may have limitations)
+        if (strpos($responseUrl, 'ngrok') !== false || strpos($responseUrl, 'trycloudflare') !== false) {
+            Log::warning('KPay: Using tunneling service URL - ensure it allows automated server requests', [
                 'response_url' => $responseUrl,
                 'error_url' => $errorUrl,
-                'note' => 'ngrok free tier often blocks automated server requests. Consider using ngrok paid tier or a real domain for testing.',
+                'note' => 'Some tunneling services may block automated requests. Test with: curl -X POST ' . $responseUrl,
             ]);
         }
 
