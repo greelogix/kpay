@@ -159,11 +159,31 @@ class KPayService
             throw new KPayException('errorURL must be a valid absolute URL (e.g., https://yoursite.com/kpay/response)');
         }
 
-        // Warn if using ngrok or localhost (KNET servers may not be able to access these)
-        if (strpos($responseUrl, 'ngrok') !== false || strpos($responseUrl, 'localhost') !== false || strpos($responseUrl, '127.0.0.1') !== false) {
-            Log::warning('KPay: Response URL contains ngrok/localhost - KNET servers may not be able to access it', [
+        // Reject localhost URLs - KNET servers cannot access them
+        $localhostPatterns = ['localhost', '127.0.0.1', '::1', '0.0.0.0'];
+        $isLocalhost = false;
+        foreach ($localhostPatterns as $pattern) {
+            if (strpos($responseUrl, $pattern) !== false || strpos($errorUrl, $pattern) !== false) {
+                $isLocalhost = true;
+                break;
+            }
+        }
+
+        if ($isLocalhost) {
+            throw new KPayException(
+                'KNET servers cannot access localhost URLs. ' .
+                'Please set APP_URL to a publicly accessible URL (e.g., https://yourdomain.com or ngrok URL). ' .
+                'Current APP_URL: ' . ($responseUrl ?: 'not set') . '. ' .
+                'For testing, use ngrok or a public domain. Update your .env file: APP_URL=https://your-public-url.com'
+            );
+        }
+
+        // Warn if using ngrok (may have limitations)
+        if (strpos($responseUrl, 'ngrok') !== false) {
+            Log::warning('KPay: Using ngrok URL - KNET servers may not be able to access it due to ngrok free tier limitations', [
                 'response_url' => $responseUrl,
                 'error_url' => $errorUrl,
+                'note' => 'ngrok free tier often blocks automated server requests. Consider using ngrok paid tier or a real domain for testing.',
             ]);
         }
 

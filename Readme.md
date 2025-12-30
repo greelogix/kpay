@@ -694,6 +694,48 @@ Before going to production:
 
 ## Troubleshooting
 
+### "Request_Resource_Not_Available" Error from KNET
+
+**Error:** `Invalid Access (Error Code:Request_Resource_Not_Available)`
+
+This error means KNET's servers cannot access your `responseURL`. Common causes:
+
+1. **Using ngrok Free Tier:**
+   - ngrok free tier often blocks automated requests from servers
+   - KNET servers cannot bypass ngrok's browser warning page
+   - **Solution:** Use ngrok paid tier, or use a real public domain for testing
+
+2. **URL Not Publicly Accessible:**
+   - The response URL must be accessible from the internet
+   - Localhost URLs (`127.0.0.1`, `localhost`) will not work
+   - **Solution:** Use a public domain or ngrok (paid tier recommended)
+
+3. **URL Requires Authentication:**
+   - If your response URL requires login/auth, KNET cannot access it
+   - **Solution:** Ensure `/kpay/response` route is publicly accessible (CSRF exempt is already configured)
+
+**Quick Fixes:**
+
+```bash
+# Option 1: Use ngrok paid tier (recommended for testing)
+# Upgrade ngrok and use static domain
+
+# Option 2: Use a real domain (best for production)
+APP_URL=https://yourdomain.com
+
+# Option 3: Test with a staging server
+APP_URL=https://staging.yourdomain.com
+```
+
+**Verify Your Response URL is Accessible:**
+
+```bash
+# Test if KNET can reach your URL
+curl -I https://your-ngrok-url.ngrok-free.app/kpay/response
+
+# Should return HTTP 200 or 405 (method not allowed is OK, means route exists)
+```
+
 ### Routes Not Working
 
 1. Clear route cache: `php artisan route:clear`
