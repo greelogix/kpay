@@ -159,6 +159,14 @@ class KPayService
             throw new KPayException('errorURL must be a valid absolute URL (e.g., https://yoursite.com/kpay/response)');
         }
 
+        // Warn if using ngrok or localhost (KNET servers may not be able to access these)
+        if (strpos($responseUrl, 'ngrok') !== false || strpos($responseUrl, 'localhost') !== false || strpos($responseUrl, '127.0.0.1') !== false) {
+            Log::warning('KPay: Response URL contains ngrok/localhost - KNET servers may not be able to access it', [
+                'response_url' => $responseUrl,
+                'error_url' => $errorUrl,
+            ]);
+        }
+
         // Build parameters according to KNET specification
         $params = [
             'action' => $data['action'] ?? '1', // 1 = Purchase
@@ -174,8 +182,23 @@ class KPayService
         // Note: KNET requires 'id' and 'password' fields to be present in the form submission
         // Even in test mode, these fields should be included (can be empty strings)
         // However, empty values are excluded from hash calculation
-        $params['id'] = $this->tranportalId ?? '';
-        $params['password'] = $this->tranportalPassword ?? '';
+        // In test mode, use empty strings if credentials are not provided or are placeholders
+        $tranportalId = $this->tranportalId ?? '';
+        $tranportalPassword = $this->tranportalPassword ?? '';
+        
+        // Remove placeholder values in test mode (common mistake)
+        if ($this->testMode) {
+            $placeholderValues = ['your_production_id', 'your_production_password', 'your_production_resource_key', 'YOUR_TRANPORTAL_ID', 'YOUR_TRANPORTAL_PASSWORD', 'YOUR_RESOURCE_KEY'];
+            if (in_array($tranportalId, $placeholderValues, true)) {
+                $tranportalId = '';
+            }
+            if (in_array($tranportalPassword, $placeholderValues, true)) {
+                $tranportalPassword = '';
+            }
+        }
+        
+        $params['id'] = $tranportalId;
+        $params['password'] = $tranportalPassword;
 
         // Store selected payment method in UDF1 if provided
         if (isset($data['payment_method_code'])) {
@@ -667,11 +690,25 @@ class KPayService
         
         // Ensure 'id' and 'password' fields are present (required by KNET, even if empty)
         // This handles cases where payment was created before these fields were always included
+        $tranportalId = $this->tranportalId ?? '';
+        $tranportalPassword = $this->tranportalPassword ?? '';
+        
+        // Remove placeholder values in test mode (common mistake)
+        if ($this->testMode) {
+            $placeholderValues = ['your_production_id', 'your_production_password', 'your_production_resource_key', 'YOUR_TRANPORTAL_ID', 'YOUR_TRANPORTAL_PASSWORD', 'YOUR_RESOURCE_KEY'];
+            if (in_array($tranportalId, $placeholderValues, true)) {
+                $tranportalId = '';
+            }
+            if (in_array($tranportalPassword, $placeholderValues, true)) {
+                $tranportalPassword = '';
+            }
+        }
+        
         if (!isset($formData['id'])) {
-            $formData['id'] = $this->tranportalId ?? '';
+            $formData['id'] = $tranportalId;
         }
         if (!isset($formData['password'])) {
-            $formData['password'] = $this->tranportalPassword ?? '';
+            $formData['password'] = $tranportalPassword;
         }
         
         // Validate required KNET parameters

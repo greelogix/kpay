@@ -102,6 +102,15 @@ class RedirectController extends Controller
                 ]), 400);
             }
             
+            // Check if responseURL contains ngrok (KNET may not be able to access it)
+            $responseUrl = $formData['responseURL'] ?? '';
+            if (strpos($responseUrl, 'ngrok') !== false) {
+                Log::warning('KPay Redirect: Using ngrok URL - KNET servers may not be able to access response URL', [
+                    'payment_id' => $paymentId,
+                    'response_url' => $responseUrl,
+                ]);
+            }
+            
             // Render payment form for auto-submission to KNET
             
             return view('kpay::payment.form', [
