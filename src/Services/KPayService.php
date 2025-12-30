@@ -3,6 +3,7 @@
 namespace Greelogix\KPay\Services;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Lang;
 use Greelogix\KPay\Exceptions\KPayException;
 use Greelogix\KPay\Models\KPayPayment;
 
@@ -106,23 +107,55 @@ class KPayService
 
     /**
      * Generate payment form data
+     * According to KNET documentation, responseURL and errorURL are REQUIRED
      */
     public function generatePaymentForm(array $data): array
     {
         $trackId = $data['track_id'] ?? $this->generateTrackId();
         $amount = number_format((float)($data['amount'] ?? 0), 3, '.', '');
 
+        // Get response and error URLs (REQUIRED by KNET)
+        $responseUrl = $data['response_url'] ?? $this->responseUrl;
+        $errorUrl = $data['error_url'] ?? $this->errorUrl;
+
+        // Validate required URLs
+        if (empty($responseUrl)) {
+            throw new KPayException('responseURL is required for KNET payment. Please configure KPAY_RESPONSE_URL in .env');
+        }
+
+        if (empty($errorUrl)) {
+            throw new KPayException('errorURL is required for KNET payment. Please configure KPAY_ERROR_URL in .env');
+        }
+
+        // Ensure URLs are absolute
+        if (!filter_var($responseUrl, FILTER_VALIDATE_URL)) {
+            throw new KPayException('responseURL must be a valid absolute URL (e.g., https://yoursite.com/kpay/response)');
+        }
+
+        if (!filter_var($errorUrl, FILTER_VALIDATE_URL)) {
+            throw new KPayException('errorURL must be a valid absolute URL (e.g., https://yoursite.com/kpay/response)');
+        }
+
+        // Build parameters according to KNET specification
         $params = [
-            'id' => $this->tranportalId,
-            'password' => $this->tranportalPassword,
             'action' => $data['action'] ?? '1', // 1 = Purchase
             'langid' => $data['language'] ?? $this->language,
             'currencycode' => $data['currency'] ?? $this->currency,
             'amt' => $amount,
             'trackid' => $trackId,
-            'responseURL' => $data['response_url'] ?? $this->responseUrl,
-            'errorURL' => $data['error_url'] ?? $this->errorUrl,
+            'responseURL' => $responseUrl,
+            'errorURL' => $errorUrl,
         ];
+
+        // Add credentials (required for production, optional for test)
+        // Note: In test mode, KNET may accept empty credentials, but we include them if provided
+        if (!empty($this->tranportalId)) {
+            $params['id'] = $this->tranportalId;
+        }
+
+        if (!empty($this->tranportalPassword)) {
+            $params['password'] = $this->tranportalPassword;
+        }
 
         // Store selected payment method in UDF1 if provided
         if (isset($data['payment_method_code'])) {
@@ -137,7 +170,8 @@ class KPayService
             }
         }
 
-        // Generate hash
+        // Generate hash (resource_key is required for hash generation)
+        // In test mode, if resource_key is empty, we still need to generate hash with empty string
         $hashString = $this->generateHashString($params);
         $params['hash'] = $this->generateHash($hashString);
 
@@ -162,18 +196,53 @@ class KPayService
     }
 
     /**
+     * Generate payment URL for API usage
+     * Returns payment URL and data in a format suitable for API responses
+     * 
+     * @param array $data Payment data (same as generatePaymentForm)
+     * @return array Contains payment_url, payment_id, track_id, and form_data
+     * @throws KPayException
+     */
+    public function generatePaymentUrl(array $data): array
+    {
+        // Use the existing generatePaymentForm method to get all the data
+        $paymentData = $this->generatePaymentForm($data);
+        
+        // Remove payment_id from form_data (internal field, not for KNET)
+        $formData = $paymentData['form_data'];
+        unset($formData['payment_id']);
+        
+        // Return API-friendly structure
+        return [
+            'payment_url' => $paymentData['form_url'],
+            'payment_id' => $paymentData['payment_id'],
+            'track_id' => $paymentData['track_id'],
+            'form_data' => $formData,
+            'method' => 'POST', // KNET requires POST
+        ];
+    }
+
+    /**
      * Validate payment response
+     * Validates the hash signature from KNET response
      */
     public function validateResponse(array $response): bool
     {
+        // Normalize response keys
+        $response = $this->normalizeResponseKeys($response);
+        
         if (!isset($response['hash'])) {
+            Log::warning('KNET Response missing hash', ['response' => $response]);
             return false;
         }
 
-        $receivedHash = $response['hash'];
-        unset($response['hash']);
+        $receivedHash = strtoupper($response['hash']);
+        
+        // Create copy for hash calculation (without hash field)
+        $paramsForHash = $response;
+        unset($paramsForHash['hash']);
 
-        $hashString = $this->generateHashString($response);
+        $hashString = $this->generateHashString($paramsForHash);
         $calculatedHash = $this->generateHash($hashString);
 
         return hash_equals($calculatedHash, $receivedHash);
@@ -181,82 +250,139 @@ class KPayService
 
     /**
      * Process payment response
+     * Handles KNET response with proper field mapping according to KNET documentation
      */
     public function processResponse(array $response): KPayPayment
     {
+        // Normalize response keys (handle both lowercase and original case)
+        $response = $this->normalizeResponseKeys($response);
+        
         if (!$this->validateResponse($response)) {
-            throw new KPayException(__('kpay.response.invalid_hash'));
+            throw new KPayException(Lang::get('kpay.response.invalid_hash'));
         }
 
         $trackId = $response['trackid'] ?? null;
         if (!$trackId) {
-            throw new KPayException(__('kpay.response.track_id_not_found'));
+            throw new KPayException(Lang::get('kpay.response.track_id_not_found'));
         }
 
         $payment = KPayPayment::where('track_id', $trackId)->first();
         if (!$payment) {
-            throw new KPayException(__('kpay.response.payment_not_found'));
+            throw new KPayException(Lang::get('kpay.response.payment_not_found'));
         }
 
         $status = $this->determineStatus($response);
         
+        // Map KNET response fields to database columns
+        // KNET uses lowercase field names: paymentid, tranid, trackid, postdate, etc.
         $payment->update([
-            'payment_id' => $response['paymentid'] ?? null,
-            'result' => $response['result'] ?? null,
-            'result_code' => $response['result'] ?? null,
-            'auth' => $response['auth'] ?? null,
-            'ref' => $response['ref'] ?? null,
-            'trans_id' => $response['tranid'] ?? null,
-            'post_date' => $response['postdate'] ?? null,
-            'udf1' => $response['udf1'] ?? null,
-            'udf2' => $response['udf2'] ?? null,
-            'udf3' => $response['udf3'] ?? null,
-            'udf4' => $response['udf4'] ?? null,
-            'udf5' => $response['udf5'] ?? null,
+            'payment_id' => $response['paymentid'] ?? $response['PaymentID'] ?? null,
+            'result' => $response['result'] ?? $response['Result'] ?? null,
+            'result_code' => $response['result'] ?? $response['Result'] ?? null,
+            'auth' => $response['auth'] ?? $response['Auth'] ?? null,
+            'ref' => $response['ref'] ?? $response['Ref'] ?? null,
+            'trans_id' => $response['tranid'] ?? $response['TranID'] ?? null,
+            'post_date' => $response['postdate'] ?? $response['PostDate'] ?? null,
+            'udf1' => $response['udf1'] ?? $response['UDF1'] ?? null,
+            'udf2' => $response['udf2'] ?? $response['UDF2'] ?? null,
+            'udf3' => $response['udf3'] ?? $response['UDF3'] ?? null,
+            'udf4' => $response['udf4'] ?? $response['UDF4'] ?? null,
+            'udf5' => $response['udf5'] ?? $response['UDF5'] ?? null,
             'status' => $status,
             'response_data' => $response,
         ]);
 
         return $payment;
     }
+    
+    /**
+     * Normalize response keys to lowercase for consistent processing
+     * KNET may return keys in different cases
+     */
+    protected function normalizeResponseKeys(array $response): array
+    {
+        $normalized = [];
+        foreach ($response as $key => $value) {
+            $normalized[strtolower($key)] = $value;
+        }
+        return $normalized;
+    }
 
     /**
      * Process refund
+     * According to KNET documentation: action = 2 for refund
+     * Requires original transaction ID (tranid) and amount
+     * 
+     * @param array $data Must contain 'trans_id' (original transaction ID) and 'amount'
+     * @return array Response from KNET refund API
+     * @throws KPayException
      */
     public function processRefund(array $data): array
     {
+        if (empty($data['trans_id'])) {
+            throw new KPayException('Transaction ID is required for refund');
+        }
+
+        if (empty($data['amount']) || (float)$data['amount'] <= 0) {
+            throw new KPayException('Valid refund amount is required');
+        }
+
         $params = [
             'id' => $this->tranportalId,
             'password' => $this->tranportalPassword,
-            'action' => '2', // 2 = Refund
-            'transid' => $data['trans_id'], // Original transaction ID
-            'trackid' => $data['track_id'] ?? $this->generateTrackId(),
-            'amt' => number_format((float)($data['amount'] ?? 0), 3, '.', ''),
+            'action' => '2', // 2 = Refund (according to KNET documentation)
+            'transid' => $data['trans_id'], // Original transaction ID from KNET
+            'trackid' => $data['track_id'] ?? $this->generateTrackId(), // New track ID for refund
+            'amt' => number_format((float)$data['amount'], 3, '.', ''), // Amount with 3 decimal places
         ];
+
+        // Add UDF fields if provided
+        for ($i = 1; $i <= 5; $i++) {
+            $key = 'udf' . $i;
+            if (isset($data[$key])) {
+                $params[$key] = $data[$key];
+            }
+        }
 
         $hashString = $this->generateHashString($params);
         $params['hash'] = $this->generateHash($hashString);
 
         // Make refund request (KNET uses HTTP POST for refunds)
         $response = $this->makeRefundRequest($params);
+        
+        // Normalize response keys
+        $response = $this->normalizeResponseKeys($response);
+        
+        // Validate response hash
+        if (!$this->validateResponse($response)) {
+            throw new KPayException('Refund response hash validation failed');
+        }
 
         return $response;
     }
 
     /**
      * Generate hash string for signature
+     * According to KNET documentation: resource_key + sorted parameter values (alphabetically by key)
+     * Empty values and null values are excluded
      */
     protected function generateHashString(array $params): string
     {
-        // KNET hash format: resource_key + param1 + param2 + ... + paramN
+        // KNET hash format: resource_key + param1_value + param2_value + ... + paramN_value
+        // Parameters must be sorted alphabetically by key name
         $hashString = $this->resourceKey;
         
-        // Sort parameters by key
-        ksort($params);
+        // Remove hash from params before sorting
+        unset($params['hash']);
         
+        // Sort parameters by key alphabetically (case-insensitive)
+        ksort($params, SORT_STRING | SORT_FLAG_CASE);
+        
+        // Concatenate parameter values in sorted order
         foreach ($params as $key => $value) {
-            if ($key !== 'hash' && $value !== null && $value !== '') {
-                $hashString .= $value;
+            // Only include non-empty values (KNET requirement)
+            if ($value !== null && $value !== '') {
+                $hashString .= (string)$value;
             }
         }
 
@@ -273,51 +399,85 @@ class KPayService
 
     /**
      * Generate unique track ID
+     * KNET requires unique track ID for each transaction
+     * Format: timestamp + random number (minimum 4 digits, maximum 40 characters total)
      */
     protected function generateTrackId(): string
     {
-        return time() . rand(1000, 9999);
+        // Generate unique track ID: timestamp + random 6-digit number
+        // This ensures uniqueness and follows KNET requirements
+        return time() . str_pad(rand(100000, 999999), 6, '0', STR_PAD_LEFT);
     }
 
     /**
      * Determine payment status from response
+     * According to KNET documentation:
+     * - CAPTURED = Successful transaction
+     * - NOT CAPTURED = Failed transaction
+     * - Other values = Pending or error
      */
     protected function determineStatus(array $response): string
     {
-        $result = $response['result'] ?? '';
+        $result = strtoupper(trim($response['result'] ?? ''));
         
+        // Successful statuses
         if (in_array($result, ['CAPTURED', 'SUCCESS'])) {
             return 'success';
         }
         
-        if (in_array($result, ['NOT CAPTURED', 'FAILED', 'CANCELLED'])) {
+        // Failed statuses
+        if (in_array($result, ['NOT CAPTURED', 'NOTCAPTURED', 'FAILED', 'CANCELLED', 'CANCELED'])) {
             return 'failed';
         }
         
+        // Check for error codes (if present)
+        if (isset($response['error']) && !empty($response['error'])) {
+            return 'failed';
+        }
+        
+        // Default to pending for unknown statuses
         return 'pending';
     }
 
     /**
-     * Make refund request
+     * Make refund request to KNET
+     * Handles HTTP POST request to KNET Payment Gateway
      */
     protected function makeRefundRequest(array $params): array
     {
         try {
-            $response = \Illuminate\Support\Facades\Http::asForm()
+            Log::info('KNET Refund Request', [
+                'url' => $this->baseUrl,
+                'params' => array_merge($params, ['password' => '***', 'hash' => '***']), // Hide sensitive data
+            ]);
+
+            $response = \Illuminate\Support\Facades\Http::timeout(30)
+                ->asForm()
                 ->post($this->baseUrl, $params);
 
             if (!$response->successful()) {
-                throw new KPayException('Refund request failed: ' . $response->body());
+                Log::error('KNET Refund HTTP Error', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                throw new KPayException('Refund request failed: HTTP ' . $response->status());
             }
 
             // Parse response (KNET returns form-encoded or XML)
             $responseData = $this->parseResponse($response->body());
+            
+            Log::info('KNET Refund Response', [
+                'response' => $responseData,
+            ]);
 
             return $responseData;
+        } catch (KPayException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('KNET Refund Error', [
-                'params' => $params,
+                'params' => array_merge($params, ['password' => '***', 'hash' => '***']),
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             throw new KPayException('Refund request failed: ' . $e->getMessage());
@@ -354,6 +514,74 @@ class KPayService
     public function getPaymentByTransId(string $transId): ?KPayPayment
     {
         return KPayPayment::where('trans_id', $transId)->first();
+    }
+
+    /**
+     * Inquiry transaction status from KNET
+     * According to KNET documentation, this should be used to check incomplete orders
+     * 
+     * @param string $trackId The track ID of the transaction to inquire
+     * @return array Response from KNET inquiry API
+     * @throws KPayException
+     */
+    public function inquiryTransaction(string $trackId): array
+    {
+        $params = [
+            'id' => $this->tranportalId,
+            'password' => $this->tranportalPassword,
+            'action' => '8', // 8 = Inquiry
+            'trackid' => $trackId,
+        ];
+
+        $hashString = $this->generateHashString($params);
+        $params['hash'] = $this->generateHash($hashString);
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::asForm()
+                ->post($this->baseUrl, $params);
+
+            if (!$response->successful()) {
+                throw new KPayException('Inquiry request failed: ' . $response->body());
+            }
+
+            // Parse response
+            $responseData = $this->parseResponse($response->body());
+            
+            // Normalize response keys
+            $responseData = $this->normalizeResponseKeys($responseData);
+            
+            // Validate response hash
+            if (!$this->validateResponse($responseData)) {
+                throw new KPayException('Inquiry response hash validation failed');
+            }
+            
+            // Update payment record if found
+            $payment = KPayPayment::where('track_id', $trackId)->first();
+            if ($payment) {
+                $status = $this->determineStatus($responseData);
+                $payment->update([
+                    'payment_id' => $responseData['paymentid'] ?? null,
+                    'result' => $responseData['result'] ?? null,
+                    'result_code' => $responseData['result'] ?? null,
+                    'auth' => $responseData['auth'] ?? null,
+                    'ref' => $responseData['ref'] ?? null,
+                    'trans_id' => $responseData['tranid'] ?? null,
+                    'post_date' => $responseData['postdate'] ?? null,
+                    'status' => $status,
+                    'response_data' => $responseData,
+                ]);
+            }
+
+            return $responseData;
+        } catch (\Exception $e) {
+            Log::error('KNET Inquiry Error', [
+                'track_id' => $trackId,
+                'params' => $params,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new KPayException('Inquiry request failed: ' . $e->getMessage());
+        }
     }
 }
 

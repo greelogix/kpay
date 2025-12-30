@@ -12,11 +12,13 @@ A lightweight Laravel package for KNET payment gateway integration. Simple payme
 - ✅ Success and error pages
 - ✅ Payment response validation with hash verification
 - ✅ Refund processing support
+- ✅ Transaction inquiry API (check incomplete orders)
 - ✅ Event system for payment status updates
 - ✅ Laravel 10.x, 11.x, and 12.x compatible
 - ✅ Auto-discovery enabled
 - ✅ Comprehensive error handling
 - ✅ Payment status tracking
+- ✅ KNET-compliant hash generation and validation
 
 ## Requirements
 
@@ -151,17 +153,30 @@ KPAY_CURRENCY=414
 KPAY_LANGUAGE=EN
 KPAY_KFAST_ENABLED=false
 KPAY_APPLE_PAY_ENABLED=false
+
+# REQUIRED: Response and Error URLs (must be publicly accessible)
+KPAY_RESPONSE_URL=https://yoursite.com/kpay/response
+KPAY_ERROR_URL=https://yoursite.com/kpay/response
 ```
 
+**IMPORTANT - Response URLs are REQUIRED:**
+- `KPAY_RESPONSE_URL` and `KPAY_ERROR_URL` are **MANDATORY** for KNET
+- Must be **absolute URLs** (starting with `https://`)
+- Must be **publicly accessible** (not localhost)
+- Can use the same URL for both (the package handles success/error routing)
+- The package provides default route: `/kpay/response`
+
 **For Testing:**
-- Leave credentials empty (not required)
+- Leave credentials empty (not required for test mode)
 - Use test URL: `https://kpaytest.com.kw/kpg/PaymentHTTP.htm`
 - Set `KPAY_TEST_MODE=true`
+- **Still need to configure response URLs** (use your public test domain)
 
 **For Production:**
 - Configure all credentials (required)
 - Use production URL: `https://www.kpay.com.kw/kpg/PaymentHTTP.htm`
 - Set `KPAY_TEST_MODE=false`
+- **Must configure response URLs** (use your production domain)
 
 ### Step 6: Clear Cache
 
@@ -207,6 +222,8 @@ $paymentMethods = KPay::getPaymentMethods('web');
 
 ### Initiate Payment
 
+#### **For Web Forms (Blade Views)**
+
 ```php
 use Greelogix\KPay\Facades\KPay;
 
@@ -235,6 +252,234 @@ return view('kpay::payment.form', [
         'formData' => $paymentData['form_data'],
     ]);
 ```
+
+#### **For API Responses (JSON)**
+
+```php
+use Greelogix\KPay\Facades\KPay;
+
+// Generate payment URL for API
+$paymentData = KPay::generatePaymentUrl([
+    'amount' => 100.000,
+    'track_id' => 'ORDER-12345',
+    'currency' => '414',
+    'language' => 'EN',
+    'udf1' => 'ORDER-12345',
+]);
+
+// Returns API-friendly structure:
+// [
+//     'payment_url' => 'https://kpaytest.com.kw/kpg/PaymentHTTP.htm',
+//     'payment_id' => 1,
+//     'track_id' => 'ORDER-12345',
+//     'form_data' => [
+//         'id' => 'MERCHANT123',
+//         'password' => 'PASS456',
+//         'action' => '1',
+//         'langid' => 'EN',
+//         'currencycode' => '414',
+//         'amt' => '100.000',
+//         'trackid' => 'ORDER-12345',
+//         'responseURL' => 'https://yoursite.com/kpay/response',
+//         'errorURL' => 'https://yoursite.com/kpay/response',
+//         'udf1' => 'ORDER-12345',
+//         'hash' => 'A1B2C3D4E5F6...',
+//     ],
+//     'method' => 'POST',
+// ]
+
+// Return as JSON response
+return response()->json([
+    'success' => true,
+    'data' => $paymentData,
+]);
+```
+
+**Example API Controller:**
+
+```php
+// app/Http/Controllers/Api/PaymentController.php
+use Greelogix\KPay\Facades\KPay;
+use Illuminate\Http\Request;
+
+class PaymentController extends Controller
+{
+    public function initiate(Request $request)
+    {
+        $request->validate([
+            'amount' => 'required|numeric|min:0.001',
+            'track_id' => 'required|string',
+            'currency' => 'sometimes|string',
+            'language' => 'sometimes|string|in:EN,AR',
+        ]);
+
+        try {
+            $paymentData = KPay::generatePaymentUrl([
+                'amount' => $request->amount,
+                'track_id' => $request->track_id,
+                'currency' => $request->currency ?? '414',
+                'language' => $request->language ?? 'EN',
+                'udf1' => $request->track_id, // Store order ID
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment URL generated successfully',
+                'data' => $paymentData,
+            ]);
+        } catch (\Greelogix\KPay\Exceptions\KPayException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
+        }
+    }
+}
+```
+
+### Payment Request Details
+
+#### **Payment Gateway URL**
+
+**Test Environment:**
+```
+https://kpaytest.com.kw/kpg/PaymentHTTP.htm
+```
+
+**Production Environment:**
+```
+https://www.kpay.com.kw/kpg/PaymentHTTP.htm
+```
+
+#### **HTTP Request Method**
+- **Method:** `POST`
+- **Content-Type:** `application/x-www-form-urlencoded`
+
+#### **Complete Request Payload Structure**
+
+The `generatePaymentForm()` method creates the following payload that gets submitted to KNET:
+
+```php
+[
+    // Required Parameters
+    'id' => 'YOUR_TRANPORTAL_ID',              // Tranportal ID from your bank
+    'password' => 'YOUR_TRANPORTAL_PASSWORD',   // Tranportal password
+    'action' => '1',                            // 1 = Purchase transaction
+    'langid' => 'EN',                           // Language: EN or AR
+    'currencycode' => '414',                    // Currency code (414 = KWD)
+    'amt' => '100.000',                         // Amount with 3 decimal places
+    'trackid' => 'ORDER-12345',                 // Unique track ID (your order ID)
+    'responseURL' => 'https://yoursite.com/kpay/response',  // Response callback URL
+    'errorURL' => 'https://yoursite.com/kpay/response',     // Error callback URL
+    
+    // Optional UDF Fields (User Defined Fields)
+    'udf1' => 'ORDER-12345',                   // Optional: Store order ID
+    'udf2' => 'USER-123',                      // Optional: Store user ID
+    'udf3' => '',                              // Optional: Custom data
+    'udf4' => '',                              // Optional: Custom data
+    'udf5' => '',                              // Optional: Custom data
+    
+    // Security Hash (automatically generated)
+    'hash' => 'A1B2C3D4E5F6...',               // SHA-256 hash for validation
+]
+```
+
+#### **Hash Generation**
+
+The hash is automatically generated using the following algorithm (per KNET specification):
+
+1. **Hash String Format:** `resource_key + sorted_parameter_values`
+2. **Sorting:** Parameters sorted alphabetically by key name (case-insensitive)
+3. **Exclusions:** Empty values and the `hash` field itself are excluded
+4. **Algorithm:** SHA-256
+5. **Output:** Uppercase hexadecimal string
+
+**Example Hash Calculation:**
+```php
+// Parameters (before sorting):
+[
+    'id' => 'MERCHANT123',
+    'password' => 'PASS456',
+    'action' => '1',
+    'amt' => '100.000',
+    'trackid' => 'ORDER-12345',
+    'currencycode' => '414',
+    'langid' => 'EN',
+    'responseURL' => 'https://yoursite.com/kpay/response',
+    'errorURL' => 'https://yoursite.com/kpay/response',
+]
+
+// Sorted by key (alphabetically):
+// action, amt, currencycode, errorURL, id, langid, password, responseURL, trackid
+
+// Hash String:
+$hashString = $resourceKey . '1' . '100.000' . '414' . 'https://yoursite.com/kpay/response' . 'MERCHANT123' . 'EN' . 'PASS456' . 'https://yoursite.com/kpay/response' . 'ORDER-12345';
+
+// Final Hash:
+$hash = strtoupper(hash('sha256', $hashString));
+```
+
+#### **Example Complete Request**
+
+**Using the Package:**
+```php
+$paymentData = KPay::generatePaymentForm([
+    'amount' => 100.000,
+    'track_id' => 'ORDER-12345',
+    'currency' => '414',
+    'language' => 'EN',
+    'udf1' => 'ORDER-12345',
+]);
+
+// $paymentData['form_data'] contains:
+[
+    'id' => 'MERCHANT123',
+    'password' => 'PASS456',
+    'action' => '1',
+    'langid' => 'EN',
+    'currencycode' => '414',
+    'amt' => '100.000',
+    'trackid' => 'ORDER-12345',
+    'responseURL' => 'https://yoursite.com/kpay/response',
+    'errorURL' => 'https://yoursite.com/kpay/response',
+    'udf1' => 'ORDER-12345',
+    'hash' => 'A1B2C3D4E5F6789012345678901234567890ABCDEF1234567890ABCDEF12',
+]
+```
+
+**Raw HTTP POST Request (what gets sent to KNET):**
+```
+POST https://kpaytest.com.kw/kpg/PaymentHTTP.htm
+Content-Type: application/x-www-form-urlencoded
+
+id=MERCHANT123&password=PASS456&action=1&langid=EN&currencycode=414&amt=100.000&trackid=ORDER-12345&responseURL=https%3A%2F%2Fyoursite.com%2Fkpay%2Fresponse&errorURL=https%3A%2F%2Fyoursite.com%2Fkpay%2Fresponse&udf1=ORDER-12345&hash=A1B2C3D4E5F6789012345678901234567890ABCDEF1234567890ABCDEF12
+```
+
+#### **Return Value Structure**
+
+```php
+[
+    'form_url' => 'https://kpaytest.com.kw/kpg/PaymentHTTP.htm',  // KNET payment gateway URL
+    'form_data' => [                                               // Complete form payload
+        'id' => '...',
+        'password' => '...',
+        'action' => '1',
+        // ... all parameters
+        'hash' => '...',
+    ],
+    'payment_id' => 1,                                            // Database payment record ID
+    'track_id' => 'ORDER-12345',                                  // Track ID used
+]
+```
+
+#### **Important Notes**
+
+1. **Amount Format:** Must have exactly 3 decimal places (e.g., `100.000`, not `100` or `100.00`)
+2. **Track ID:** Must be unique for each transaction (used to match responses)
+3. **Hash:** Automatically generated - never manually create it
+4. **URLs:** Response and error URLs must be publicly accessible (HTTPS recommended)
+5. **Test Mode:** In test mode, credentials can be empty (KNET test environment doesn't require them)
+6. **Production:** All credentials (id, password, resource_key) are REQUIRED in production
 
 ### Payment Callback (Automatic)
 
@@ -297,6 +542,34 @@ $payment = KPay::getPaymentByTrackId('ORDER-12345');
 
 if ($payment && $payment->isSuccessful()) {
     // Payment successful
+}
+```
+
+### Inquiry Transaction Status
+
+According to KNET documentation, use the inquiry feature to check the status of incomplete orders. This is recommended for verifying transaction status when response notifications may not have been received.
+
+```php
+use Greelogix\KPay\Facades\KPay;
+
+// Inquiry transaction status from KNET
+try {
+    $response = KPay::inquiryTransaction('ORDER-12345');
+    
+    // Response contains:
+    // - paymentid, result, auth, ref, tranid, postdate, etc.
+    // - Payment record is automatically updated if found
+    
+    if ($response['result'] === 'CAPTURED') {
+        // Transaction successful
+    }
+} catch (\Greelogix\KPay\Exceptions\KPayException $e) {
+    // Handle error
+    logger()->error('Inquiry failed: ' . $e->getMessage());
+}
+```
+
+**Note:** The inquiry method automatically updates the payment record in your database if found, and validates the response hash for security.
 }
 
 // Get payment by transaction ID

@@ -7,9 +7,11 @@ use Illuminate\Support\Facades\Facade;
 /**
  * @method static array getPaymentMethods(string $platform = 'web')
  * @method static array generatePaymentForm(array $data)
+ * @method static array generatePaymentUrl(array $data)
  * @method static bool validateResponse(array $response)
  * @method static \Greelogix\KPay\Models\KPayPayment processResponse(array $response)
  * @method static array processRefund(array $data)
+ * @method static array inquiryTransaction(string $trackId)
  * @method static \Greelogix\KPay\Models\KPayPayment|null getPaymentByTrackId(string $trackId)
  * @method static \Greelogix\KPay\Models\KPayPayment|null getPaymentByTransId(string $transId)
  *

@@ -51,7 +51,9 @@
 
     <form id="knetForm" method="POST" action="{{ $formUrl }}" style="display: none;">
         @foreach($formData as $key => $value)
-            <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+            @if($key !== 'payment_id') {{-- Exclude internal payment_id from form --}}
+                <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+            @endif
         @endforeach
     </form>
 

@@ -14,21 +14,28 @@ class ResponseController extends Controller
 {
     /**
      * Handle payment response from KNET
+     * According to KNET documentation, responses can come via POST or GET
+     * Both methods are supported
      */
     public function handle(Request $request)
     {
         try {
+            // Get all request parameters (works for both GET and POST)
             $response = $request->all();
             
-            // Log incoming response for debugging
+            // Log incoming response for debugging (mandatory per KNET best practices)
             Log::info('KNET Payment Response Received', [
+                'method' => $request->method(),
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
                 'response' => $response,
+                'timestamp' => now()->toIso8601String(),
             ]);
             
             // Process the response
             $payment = KPay::processResponse($response);
             
-            // Fire event
+            // Fire event for external integration
             event(new PaymentStatusUpdated($payment));
             
             // Redirect based on payment status
@@ -39,6 +46,8 @@ class ResponseController extends Controller
             }
         } catch (KPayException $e) {
             Log::error('KNET Response Error', [
+                'method' => $request->method(),
+                'ip' => $request->ip(),
                 'response' => $request->all(),
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -47,6 +56,8 @@ class ResponseController extends Controller
             return $this->handleError($e);
         } catch (\Exception $e) {
             Log::error('KNET Response Unexpected Error', [
+                'method' => $request->method(),
+                'ip' => $request->ip(),
                 'response' => $request->all(),
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),

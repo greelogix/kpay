@@ -88,6 +88,12 @@ return [
     |--------------------------------------------------------------------------
     |
     | URL where KNET will redirect after payment processing.
+    | 
+    | IMPORTANT: This is REQUIRED by KNET. Must be a publicly accessible
+    | absolute URL (e.g., https://yoursite.com/kpay/response).
+    | 
+    | The package provides a default route at /kpay/response, so you can use:
+    | https://yoursite.com/kpay/response
     |
     */
     'response_url' => env('KPAY_RESPONSE_URL', ''),
@@ -98,6 +104,13 @@ return [
     |--------------------------------------------------------------------------
     |
     | URL where KNET will redirect on payment errors.
+    | 
+    | IMPORTANT: This is REQUIRED by KNET. Must be a publicly accessible
+    | absolute URL (e.g., https://yoursite.com/kpay/response).
+    | 
+    | You can use the same URL as response_url, or a different error page.
+    | The package provides a default route at /kpay/response, so you can use:
+    | https://yoursite.com/kpay/response
     |
     */
     'error_url' => env('KPAY_ERROR_URL', ''),
