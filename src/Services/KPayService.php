@@ -194,6 +194,10 @@ class KPayService
             if (in_array($tranportalPassword, $placeholderValues, true)) {
                 $tranportalPassword = '';
             }
+            
+            if (empty($tranportalId)) {
+                $tranportalId = '';
+            }
         }
 
         $language = strtoupper($data['language'] ?? $this->language);
@@ -258,6 +262,11 @@ class KPayService
             'has_error_url' => !empty($errorUrl),
             'has_response_url' => !empty($responseUrl),
             'error_url_in_trandata' => strpos($trandata, 'errorURL=') !== false,
+            'tranportal_id' => $tranportalId ? 'SET' : 'EMPTY',
+            'tranportal_id_length' => strlen($tranportalId),
+            'param_string_preview' => substr($paramString, 0, 150) . '...',
+            'has_id_in_param' => strpos($paramString, 'id=') !== false,
+            'has_tranportal_id_in_trandata' => strpos($trandata, 'tranportalId=') !== false,
         ]);
 
         try {

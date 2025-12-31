@@ -92,10 +92,7 @@ class RedirectController extends Controller
                 return $this->renderError(Lang::get('kpay.redirect.invalid_request_data', ['error' => $e->getMessage()]), 400);
             }
             
-            // Use Laravel redirect (server-side) instead of JavaScript redirect
-            // This matches the reference code's PHP header("Location: ...") approach
-            // and ensures the URL is sent correctly without browser encoding issues
-            return redirect($finalUrl);
+            return response('', 302)->header('Location', $finalUrl);
         } catch (KPayException $e) {
             Log::error('KPay Redirect: KPayException', [
                 'payment_id' => $paymentId,
