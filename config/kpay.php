@@ -43,7 +43,8 @@ return [
     | Your KNET resource key for payment processing.
     |
     | IMPORTANT: For TEST MODE, this can be left empty. KNET test environment
-    | does not require credentials for testing.
+    | does not require credentials for testing. The service will use a default
+    | test key for encryption if empty in test mode.
     |
     | For PRODUCTION, this is REQUIRED and must be provided by your acquiring bank.
     |
