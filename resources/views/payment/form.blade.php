@@ -49,18 +49,10 @@
         <div class="sub-message">{{ __('kpay.payment.form.please_wait') }}</div>
     </div>
 
-    <form id="knetForm" method="POST" action="{{ $formUrl }}" style="display: none;">
-        @foreach($formData as $key => $value)
-            @if($key !== 'payment_id') {{-- Exclude internal payment_id from form --}}
-                <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-            @endif
-        @endforeach
-    </form>
-
     <script>
-        // Auto-submit form immediately
+        // Redirect to KPAY payment URL immediately (as per reference code)
         (function() {
-            document.getElementById('knetForm').submit();
+            window.location.href = "{{ $formUrl }}";
         })();
     </script>
 </body>

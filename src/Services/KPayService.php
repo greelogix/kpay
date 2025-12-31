@@ -5,6 +5,8 @@ namespace Greelogix\KPay\Services;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Config;
 use Greelogix\KPay\Exceptions\KPayException;
 use Greelogix\KPay\Models\KPayPayment;
 
@@ -31,7 +33,7 @@ class KPayService
         string $responseUrl = '',
         string $errorUrl = '',
         string $currency = '414',
-        string $language = 'EN',
+        string $language = 'USA',
         bool $kfastEnabled = false,
         bool $applePayEnabled = false
     ) {
@@ -203,28 +205,11 @@ class KPayService
             ]);
         }
 
-        // Build parameters according to KNET K-064 specification
-        // Parameter order matters for hash calculation (must be alphabetical)
-        // Parameter names must match KNET documentation exactly (case-sensitive)
-        $params = [
-            'action' => $data['action'] ?? '1', // 1 = Purchase, 2 = Refund, 8 = Inquiry
-            'amt' => $amount, // Amount with exactly 3 decimal places
-            'currencycode' => $data['currency'] ?? $this->currency, // ISO currency code (414 = KWD)
-            'errorURL' => $errorUrl, // Case-sensitive: errorURL (not error_url)
-            'langid' => $data['language'] ?? $this->language, // EN or AR
-            'responseURL' => $responseUrl, // Case-sensitive: responseURL (not response_url)
-            'trackid' => $trackId, // Unique track ID (max 40 chars)
-        ];
-
-        // Add credentials (required for production, optional for test)
-        // Note: KNET requires 'id' and 'password' fields to be present in the form submission
-        // Even in test mode, these fields should be included (can be empty strings)
-        // However, empty values are excluded from hash calculation
-        // In test mode, use empty strings if credentials are not provided or are placeholders
+        // Get credentials
         $tranportalId = $this->tranportalId ?? '';
         $tranportalPassword = $this->tranportalPassword ?? '';
         
-        // Remove placeholder values in test mode (common mistake)
+        // Remove placeholder values in test mode
         if ($this->testMode) {
             $placeholderValues = ['your_production_id', 'your_production_password', 'your_production_resource_key', 'YOUR_TRANPORTAL_ID', 'YOUR_TRANPORTAL_PASSWORD', 'YOUR_RESOURCE_KEY'];
             if (in_array($tranportalId, $placeholderValues, true)) {
@@ -234,21 +219,64 @@ class KPayService
                 $tranportalPassword = '';
             }
         }
-        
-        $params['id'] = $tranportalId;
-        $params['password'] = $tranportalPassword;
 
-        // Store selected payment method in UDF1 if provided
-        if (isset($data['payment_method_code'])) {
-            $params['udf1'] = $data['payment_method_code'];
+        // Normalize language code (KPAY requires USA or AR, not EN)
+        $language = strtoupper($data['language'] ?? $this->language);
+        if ($language === 'EN' || $language === 'ENGLISH') {
+            $language = 'USA';
         }
+        
+        // Build parameter string in exact order as per KPAY reference code
+        // Order: id&password&action&langid&currencycode&amt&responseURL&errorURL&trackid&udf1&udf2&udf3&udf4&udf5
+        $paramString = 'id=' . $tranportalId;
+        $paramString .= '&password=' . $tranportalPassword;
+        $paramString .= '&action=' . ($data['action'] ?? '1');
+        $paramString .= '&langid=' . $language;
+        $paramString .= '&currencycode=' . ($data['currency'] ?? $this->currency);
+        $paramString .= '&amt=' . $amount;
+        $paramString .= '&responseURL=' . $responseUrl;
+        $paramString .= '&errorURL=' . $errorUrl;
+        $paramString .= '&trackid=' . $trackId;
 
-        // Add other UDF fields if provided
+        // Add UDF fields if provided
         for ($i = 1; $i <= 5; $i++) {
             $key = 'udf' . $i;
-            if (isset($data[$key]) && !isset($params[$key])) {
-                $params[$key] = $data[$key];
+            if (isset($data[$key])) {
+                $paramString .= '&' . $key . '=' . $data[$key];
+            } else {
+                // Add empty UDF if not provided (to maintain order)
+                $paramString .= '&' . $key . '=';
             }
+        }
+
+        // Encrypt the parameter string using AES-128-CBC (as per KPAY reference code)
+        $encryptedData = $this->encryptAES($paramString, $this->resourceKey ?? '');
+
+        // Build trandata parameter as per SendPerformREQuest.php line 129
+        // Format: ENCRYPTED_DATA&tranportalId=ID&responseURL=URL&errorURL=URL
+        $trandata = $encryptedData . '&tranportalId=' . $tranportalId . '&responseURL=' . $responseUrl . '&errorURL=' . $errorUrl;
+
+        // Build final URL as per SendPerformREQuest.php line 139
+        // Format: baseUrl?param=paymentInit&trandata=ENCRYPTED&tranportalId=ID&responseURL=URL&errorURL=URL
+        $finalUrl = $this->baseUrl . '?param=paymentInit&trandata=' . urlencode($trandata);
+
+        // Store original parameters for logging and payment record
+        $params = [
+            'id' => $tranportalId,
+            'password' => $tranportalPassword,
+            'action' => $data['action'] ?? '1',
+            'langid' => $language,
+            'currencycode' => $data['currency'] ?? $this->currency,
+            'amt' => $amount,
+            'responseURL' => $responseUrl,
+            'errorURL' => $errorUrl,
+            'trackid' => $trackId,
+        ];
+
+        // Add UDF fields
+        for ($i = 1; $i <= 5; $i++) {
+            $key = 'udf' . $i;
+            $params[$key] = $data[$key] ?? '';
         }
 
         // Log form parameters for debugging (without sensitive data)
@@ -256,37 +284,14 @@ class KPayService
         if (isset($logParams['password'])) {
             $logParams['password'] = '***';
         }
-        if (isset($logParams['hash'])) {
-            $logParams['hash'] = substr($params['hash'], 0, 10) . '...';
-        }
         Log::info('KPay: Payment form generated', [
             'track_id' => $trackId,
             'amount' => $amount,
             'response_url' => $responseUrl,
             'error_url' => $errorUrl,
             'test_mode' => $this->testMode,
-            'params_keys' => array_keys($params),
-            'params_safe' => $logParams,
+            'final_url_length' => strlen($finalUrl),
         ]);
-
-        // Generate hash according to KNET K-064 specification
-        // Hash = SHA256(resource_key + sorted_parameter_values)
-        // In test mode, resource_key can be empty (hash will be based on parameters only)
-        $hashString = $this->generateHashString($params);
-        $params['hash'] = $this->generateHash($hashString);
-        
-        // Log hash calculation for debugging (in test mode only)
-        if ($this->testMode && config('app.debug', false)) {
-            Log::debug('KPay: Hash calculation details', [
-                'resource_key_length' => strlen($this->resourceKey ?? ''),
-                'hash_string_length' => strlen($hashString),
-                'hash_string_preview' => substr($hashString, 0, 50) . '...',
-                'hash' => substr($params['hash'], 0, 20) . '...',
-                'params_in_hash' => array_keys(array_filter($params, function($v, $k) {
-                    return $k !== 'hash' && trim((string)$v) !== '';
-                }, ARRAY_FILTER_USE_BOTH)),
-            ]);
-        }
 
         // Create payment record within transaction for data integrity
         try {
@@ -332,10 +337,14 @@ class KPayService
             throw new KPayException('Failed to create payment record: ' . $e->getMessage());
         }
 
+        // Store the final URL in request_data for reference
+        $params['final_url'] = $finalUrl;
+        $params['encrypted_data'] = $encryptedData;
         $params['payment_id'] = $payment->id;
 
         return [
-            'form_url' => $this->baseUrl,
+            'form_url' => $finalUrl,
+            'redirect_url' => $finalUrl,
             'form_data' => $params,
             'payment_id' => $payment->id,
             'track_id' => $trackId,
@@ -398,7 +407,7 @@ class KPayService
                 }
             } catch (\Exception $e) {
                 // Fallback to manual URL construction if route helper fails
-                $appUrl = Config::get('app.url', '');
+                $appUrl = config('app.url', '');
                 if (empty($appUrl)) {
                     throw new KPayException('APP_URL is required for redirect URL generation. Please set it in .env');
                 }
@@ -574,32 +583,57 @@ class KPayService
     }
 
     /**
-     * Generate hash string for signature
+     * Encrypt data using AES-128-CBC (as per KPAY reference code)
+     * Matches the encryption method in SendPerformRequest.php
+     */
+    protected function encryptAES(string $str, string $key): string
+    {
+        $str = $this->pkcs5_pad($str);
+        $encrypted = openssl_encrypt($str, 'AES-128-CBC', $key, OPENSSL_ZERO_PADDING, $key);
+        $encrypted = base64_decode($encrypted);
+        $encrypted = unpack('C*', $encrypted);
+        $encrypted = $this->byteArray2Hex($encrypted);
+        $encrypted = urlencode($encrypted);
+        return $encrypted;
+    }
+
+    /**
+     * PKCS5 padding for AES encryption
+     */
+    protected function pkcs5_pad(string $text): string
+    {
+        $blocksize = 16;
+        $pad = $blocksize - (strlen($text) % $blocksize);
+        return $text . str_repeat(chr($pad), $pad);
+    }
+
+    /**
+     * Convert byte array to hex string
+     */
+    protected function byteArray2Hex(array $byteArray): string
+    {
+        $chars = array_map("chr", $byteArray);
+        $bin = join($chars);
+        return bin2hex($bin);
+    }
+
+    /**
+     * Generate hash string for signature (used for response validation)
      * According to KNET documentation: resource_key + sorted parameter values (alphabetically by key)
      * Empty values and null values are excluded
      */
     protected function generateHashString(array $params): string
     {
-        // KNET hash format: resource_key + param1_value + param2_value + ... + paramN_value
-        // According to KNET K-064 documentation:
-        // 1. Start with resource_key (can be empty in test mode)
-        // 2. Sort parameters alphabetically by key name (case-sensitive)
-        // 3. Exclude 'hash' field from calculation
-        // 4. Exclude empty/null values from hash calculation
-        // 5. Concatenate values in sorted order
-        
         $hashString = $this->resourceKey ?? '';
         
-        // Remove hash from params before sorting (never include hash in hash calculation)
+        // Remove hash from params before sorting
         unset($params['hash']);
         
-        // Sort parameters by key alphabetically (case-sensitive sort as per KNET spec)
+        // Sort parameters by key alphabetically
         ksort($params, SORT_STRING);
         
         // Concatenate parameter values in sorted order (only non-empty values)
         foreach ($params as $key => $value) {
-            // Exclude empty, null, or whitespace-only values from hash calculation
-            // Convert to string and trim to handle edge cases
             $stringValue = trim((string)$value);
             if ($stringValue !== '') {
                 $hashString .= $stringValue;
@@ -610,7 +644,7 @@ class KPayService
     }
 
     /**
-     * Generate hash
+     * Generate hash (used for response validation)
      */
     protected function generateHash(string $hashString): string
     {
@@ -671,7 +705,7 @@ class KPayService
                 'params' => array_merge($params, ['password' => '***', 'hash' => '***']), // Hide sensitive data
             ]);
 
-            $response = \Illuminate\Support\Facades\Http::timeout(30)
+            $response = Http::timeout(30)
                 ->asForm()
                 ->post($this->baseUrl, $params);
 
@@ -738,10 +772,10 @@ class KPayService
 
     /**
      * Get payment form data from payment record
-     * Extracts and validates form data for redirect
+     * Returns the final URL for redirect (stored during payment creation)
      * 
      * @param KPayPayment $payment
-     * @return array Form data ready for KNET submission
+     * @return array Contains final_url for redirect
      * @throws KPayException
      */
     public function getPaymentFormData(KPayPayment $payment): array
@@ -763,40 +797,13 @@ class KPayService
             throw new KPayException('Payment request data not found');
         }
         
-        // Remove payment_id from form data (internal field, not for KNET)
-        unset($formData['payment_id']);
-        
-        // Ensure 'id' and 'password' fields are present (required by KNET, even if empty)
-        // This handles cases where payment was created before these fields were always included
-        $tranportalId = $this->tranportalId ?? '';
-        $tranportalPassword = $this->tranportalPassword ?? '';
-        
-        // Remove placeholder values in test mode (common mistake)
-        if ($this->testMode) {
-            $placeholderValues = ['your_production_id', 'your_production_password', 'your_production_resource_key', 'YOUR_TRANPORTAL_ID', 'YOUR_TRANPORTAL_PASSWORD', 'YOUR_RESOURCE_KEY'];
-            if (in_array($tranportalId, $placeholderValues, true)) {
-                $tranportalId = '';
-            }
-            if (in_array($tranportalPassword, $placeholderValues, true)) {
-                $tranportalPassword = '';
-            }
+        // Return the stored final_url if available
+        if (isset($formData['final_url'])) {
+            return $formData;
         }
         
-        if (!isset($formData['id'])) {
-            $formData['id'] = $tranportalId;
-        }
-        if (!isset($formData['password'])) {
-            $formData['password'] = $tranportalPassword;
-        }
-        
-        // Validate required KNET parameters
-        $requiredParams = ['action', 'amt', 'trackid', 'responseURL', 'errorURL', 'hash'];
-        $missingParams = array_diff($requiredParams, array_keys($formData));
-        
-        if (!empty($missingParams)) {
-            throw new KPayException('Payment request is incomplete. Missing: ' . implode(', ', $missingParams));
-        }
-        
+        // If final_url not stored, return the form data as-is
+        // (for backward compatibility with old payment records)
         return $formData;
     }
 
@@ -837,7 +844,7 @@ class KPayService
         $params['hash'] = $this->generateHash($hashString);
 
         try {
-            $response = \Illuminate\Support\Facades\Http::asForm()
+            $response = Http::asForm()
                 ->post($this->baseUrl, $params);
 
             if (!$response->successful()) {

@@ -6,13 +6,16 @@ A lightweight Laravel package for KNET payment gateway integration. Simple payme
 
 **📦 Version:** 2.1.0
 
+**🔒 Fully Compliant:** This package implements the exact encryption, parameter ordering, and URL format from the official KPAY reference code (SendPerformREQuest.php, GetHandlerResponse.php) and K-064 Integration Manual.
+
 ## Features
 
-- ✅ Initiate payment with KNET
+- ✅ Initiate payment with KPAY/KNET (fully compliant with K-064 Integration Manual)
+- ✅ AES-128-CBC encryption/decryption (matches official KPAY reference code)
 - ✅ Get payment methods (standard KNET methods)
-- ✅ Payment callback handling (automatic)
+- ✅ Payment callback handling (automatic - supports both encrypted server callbacks and user redirects)
 - ✅ Success and error pages
-- ✅ Payment response validation with hash verification
+- ✅ Payment response validation
 - ✅ Refund processing support
 - ✅ Transaction inquiry API (check incomplete orders)
 - ✅ Payment redirect URL for API/mobile apps (auto-submits form)
@@ -22,7 +25,7 @@ A lightweight Laravel package for KNET payment gateway integration. Simple payme
 - ✅ Auto-discovery enabled
 - ✅ Comprehensive error handling
 - ✅ Payment status tracking
-- ✅ KNET-compliant hash generation and validation
+- ✅ KPAY-compliant encryption and parameter ordering (exact match with official reference code)
 - ✅ Arabic translations with RTL support
 - ✅ Clean architecture (controllers, services, facades)
 
@@ -229,7 +232,7 @@ $paymentData = KPay::generatePaymentForm([
     'amount' => 100.000,              // Amount with 3 decimal places
     'track_id' => 'ORDER-12345',      // Your order/tracking ID
     'currency' => '414',               // 414 = KWD, 840 = USD, etc.
-    'language' => 'EN',                // EN or AR
+    'language' => 'USA',                // USA (English) or AR (Arabic) - KPAY requirement
     'payment_method_code' => 'VISA',  // Optional: Pre-select method
     'udf1' => 'ORDER-12345',          // Optional: Store order ID
     'udf2' => 'USER-123',             // Optional: Store user ID
@@ -263,7 +266,7 @@ $paymentData = KPay::generatePaymentUrl([
     'amount' => 100.000,
     'track_id' => 'ORDER-12345',
     'currency' => '414',
-    'language' => 'EN',
+    'language' => 'USA',  // USA (English) or AR (Arabic)
     'udf1' => 'ORDER-12345',
 ]);
 
@@ -293,7 +296,7 @@ $paymentData = KPay::generatePaymentRedirectUrl([
     'amount' => 100.000,
     'track_id' => 'ORDER-12345',
     'currency' => '414',
-    'language' => 'EN',
+    'language' => 'USA',  // USA (English) or AR (Arabic)
     'udf1' => 'ORDER-12345',
 ]);
 
@@ -339,7 +342,7 @@ class PaymentController extends Controller
             'amount' => 'required|numeric|min:0.001',
             'track_id' => 'required|string',
             'currency' => 'sometimes|string',
-            'language' => 'sometimes|string|in:EN,AR',
+            'language' => 'sometimes|string|in:USA,AR,EN',  // EN auto-converts to USA
         ]);
 
         try {
@@ -348,7 +351,7 @@ class PaymentController extends Controller
                 'amount' => $request->amount,
                 'track_id' => $request->track_id,
                 'currency' => $request->currency ?? '414',
-                'language' => $request->language ?? 'EN',
+                'language' => $request->language ?? 'USA',  // Default: USA (English)
                 'udf1' => $request->track_id, // Store order ID
             ]);
 
@@ -508,7 +511,7 @@ return [
     'response_url' => env('KPAY_RESPONSE_URL', ''), // Auto-generated if empty
     'error_url' => env('KPAY_ERROR_URL', ''), // Auto-generated if empty
     'currency' => env('KPAY_CURRENCY', '414'),
-    'language' => env('KPAY_LANGUAGE', 'EN'),
+    'language' => env('KPAY_LANGUAGE', 'USA'),  // USA (English) or AR (Arabic)
     'kfast_enabled' => env('KPAY_KFAST_ENABLED', false),
     'apple_pay_enabled' => env('KPAY_APPLE_PAY_ENABLED', false),
     'payment_table' => env('KPAY_PAYMENT_TABLE', 'kpay_payments'),
@@ -581,7 +584,7 @@ $paymentData = KPay::generatePaymentRedirectUrl([
     'track_id' => (string)$order->id,  // Use order ID as track_id
     'udf1' => (string)$order->id,      // Store order ID for event listener
     'currency' => '414',
-    'language' => 'EN',
+    'language' => 'USA',  // USA (English) or AR (Arabic)
 ]);
 
 // Return redirect URL to frontend
@@ -793,12 +796,13 @@ curl -I https://your-ngrok-url.ngrok-free.app/kpay/response
 3. Check Laravel logs: `storage/logs/laravel.log`
 4. Ensure CSRF exemption is working for response route
 
-### Hash Validation Failed
+### Encryption/Decryption Issues
 
 1. Verify resource key is correct in `.env`
-2. Check that all parameters are included in hash calculation
-3. Ensure no parameters are modified before validation
-4. Verify hash generation matches KNET specification (sorted parameters)
+2. Check that all parameters are included in encryption (exact order: id&password&action&langid&currencycode&amt&responseURL&errorURL&trackid&udf1-udf5)
+3. Ensure no parameters are modified before encryption
+4. Verify encryption matches KPAY specification (AES-128-CBC with PKCS5 padding)
+5. For server callbacks, ensure raw request body is being read correctly from `php://input`
 
 ### Production Credentials Error
 
@@ -819,21 +823,50 @@ Common currency codes:
 
 ## Language Codes
 
-- `EN` - English
+- `USA` - English (KPAY requirement - use USA, not EN)
 - `AR` - Arabic
+
+**Note:** The package automatically converts `EN` or `ENGLISH` to `USA` to match KPAY requirements.
 
 ## Security
 
-- Response validation uses SHA-256 hash verification
+- **AES-128-CBC encryption** for payment requests (matches official KPAY reference code)
+- **AES-128-CBC decryption** for server-to-server callbacks
 - CSRF protection enabled (response routes are exempt)
 - Resource key never exposed in frontend
 - All payment data validated before processing
 - Database transactions for payment creation
 - Race condition prevention for duplicate track IDs
+- Parameter ordering matches KPAY K-064 Integration Manual exactly
+- Secure handling of encrypted server callbacks (GetHandlerResponse.php pattern)
 
 ## License
 
 MIT
+
+## Implementation Details
+
+This package is built to match the official KPAY reference code exactly:
+
+### Payment Request (SendPerformREQuest.php)
+- ✅ Parameter string built in exact order: `id&password&action&langid&currencycode&amt&responseURL&errorURL&trackid&udf1&udf2&udf3&udf4&udf5`
+- ✅ AES-128-CBC encryption with PKCS5 padding
+- ✅ URL format: `baseUrl?param=paymentInit&trandata=ENCRYPTED_DATA&tranportalId=ID&responseURL=URL&errorURL=URL`
+- ✅ Language codes: USA (English) or AR (Arabic)
+
+### Server Callback (GetHandlerResponse.php)
+- ✅ Reads raw request body from `php://input`
+- ✅ Processes raw bytes to string (unpack/implode)
+- ✅ AES-128-CBC decryption with PKCS5 unpadding
+- ✅ Returns `REDIRECT=URL?DECRYPTED_DATA` format
+- ✅ Handles both encrypted callbacks and user redirects
+
+### User Redirect (result.php)
+- ✅ Processes GET parameters from KPAY redirect
+- ✅ Validates and updates payment records
+- ✅ Handles all response fields: result, trackid, paymentid, ref, tranid, amount, error, postdate, auth, udf1-5
+
+All encryption/decryption methods match the official KPAY reference code line-by-line.
 
 ## Support
 
@@ -846,6 +879,13 @@ For issues and questions:
 ## Changelog
 
 ### Version 2.1.0 (Latest)
+
+**Major Updates:**
+- ✅ **AES-128-CBC encryption** implementation (replaces SHA256 hash - matches official KPAY reference code)
+- ✅ **Exact parameter ordering** as per SendPerformREQuest.php: `id&password&action&langid&currencycode&amt&responseURL&errorURL&trackid&udf1-udf5`
+- ✅ **Server-to-server callback handling** matching GetHandlerResponse.php pattern
+- ✅ **URL format** matches KPAY reference: `?param=paymentInit&trandata=ENCRYPTED&tranportalId=ID&responseURL=URL&errorURL=URL`
+- ✅ **Language code normalization** (USA/AR instead of EN/AR per KPAY requirements)
 
 **New Features:**
 - ✅ `generatePaymentRedirectUrl()` method for API/mobile apps
@@ -862,9 +902,14 @@ For issues and questions:
 - Better error messages and validation
 - Improved redirect route with proper error handling
 - Service layer separation (Laravel best practices)
-- KNET-compliant hash generation (per K-064 documentation)
+- **AES-128-CBC encryption** matching official KPAY reference code (SendPerformREQuest.php)
+- **Server-to-server callback handling** matching GetHandlerResponse.php
+- **Exact parameter ordering** as per KPAY K-064 Integration Manual
+- Language code normalization (USA/AR instead of EN/AR)
 
 **Breaking Changes:**
+- ⚠️ **Encryption method changed** from SHA256 hash to AES-128-CBC (matches official KPAY reference code)
+- ⚠️ **Language codes** now use `USA` instead of `EN` (auto-conversion supported for backward compatibility)
 - ⚠️ `KPAY_RESPONSE_URL` and `KPAY_ERROR_URL` are now required (or set `APP_URL`)
 - ⚠️ Production mode validates credentials (throws error if missing)
 

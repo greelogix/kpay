@@ -47,75 +47,54 @@ class RedirectController extends Controller
 
             // Payment found - proceed with redirect
 
-            // Get form data
+            // Get payment form data (contains the final redirect URL)
             try {
                 $formData = KPay::getPaymentFormData($payment);
                 
-                // Log form data for debugging (without sensitive info)
-                if (config('kpay.log_requests', true)) {
-                    $logData = $formData;
-                    if (isset($logData['password'])) {
-                        $logData['password'] = '***';
-                    }
-                    if (isset($logData['hash'])) {
-                        $logData['hash'] = substr($logData['hash'], 0, 10) . '...';
-                    }
-                    Log::info('KPay Redirect: Form data prepared', [
+                // Get the final URL from form data (stored during payment creation)
+                $finalUrl = $formData['final_url'] ?? null;
+                
+                if (empty($finalUrl)) {
+                    // Fallback: regenerate payment URL if not stored
+                    Log::warning('KPay Redirect: Final URL not found in payment data, regenerating', [
                         'payment_id' => $paymentId,
-                        'form_data_keys' => array_keys($formData),
-                        'form_data_safe' => $logData,
-                        'base_url' => KPay::getBaseUrl(),
+                    ]);
+                    
+                    // Regenerate payment form to get the URL
+                    $paymentData = KPay::generatePaymentForm([
+                        'amount' => $payment->amount,
+                        'track_id' => $payment->track_id,
+                        'currency' => $payment->currency,
+                    ]);
+                    
+                    $finalUrl = $paymentData['form_url'] ?? $paymentData['redirect_url'] ?? null;
+                }
+                
+                if (empty($finalUrl)) {
+                    throw new KPayException('Payment URL could not be generated');
+                }
+                
+                // Log redirect for debugging
+                if (config('kpay.log_requests', true)) {
+                    Log::info('KPay Redirect: Redirecting to KPAY', [
+                        'payment_id' => $paymentId,
+                        'track_id' => $payment->track_id,
+                        'url_length' => strlen($finalUrl),
                     ]);
                 }
+                
             } catch (KPayException $e) {
-                Log::error('KPay Redirect: Failed to get form data', [
+                Log::error('KPay Redirect: Failed to get payment URL', [
                     'payment_id' => $paymentId,
                     'error' => $e->getMessage(),
                     'request_data' => $payment->request_data,
                 ]);
                 return $this->renderError(Lang::get('kpay.redirect.invalid_request_data', ['error' => $e->getMessage()]), 400);
             }
-
-            // Get base URL
-            try {
-                $baseUrl = KPay::getBaseUrl();
-            } catch (\Exception $e) {
-                Log::error('KPay Redirect: Failed to get base URL', [
-                    'payment_id' => $paymentId,
-                    'error' => $e->getMessage(),
-                ]);
-                return $this->renderError(Lang::get('kpay.redirect.gateway_config_error'), 500);
-            }
             
-            // Validate form data has all required fields
-            $requiredFields = ['action', 'amt', 'trackid', 'responseURL', 'errorURL', 'hash'];
-            $missingFields = array_diff($requiredFields, array_keys($formData));
-            
-            if (!empty($missingFields)) {
-                Log::error('KPay Redirect: Missing required form fields', [
-                    'payment_id' => $paymentId,
-                    'missing_fields' => $missingFields,
-                    'available_fields' => array_keys($formData),
-                ]);
-                return $this->renderError(Lang::get('kpay.redirect.invalid_request_data', [
-                    'error' => 'Missing required fields: ' . implode(', ', $missingFields)
-                ]), 400);
-            }
-            
-            // Check if responseURL contains ngrok (KNET may not be able to access it)
-            $responseUrl = $formData['responseURL'] ?? '';
-            if (strpos($responseUrl, 'ngrok') !== false) {
-                Log::warning('KPay Redirect: Using ngrok URL - KNET servers may not be able to access response URL', [
-                    'payment_id' => $paymentId,
-                    'response_url' => $responseUrl,
-                ]);
-            }
-            
-            // Render payment form for auto-submission to KNET
-            
+            // Render payment form for redirect to KPAY
             return view('kpay::payment.form', [
-                'formUrl' => $baseUrl,
-                'formData' => $formData,
+                'formUrl' => $finalUrl,
             ]);
         } catch (KPayException $e) {
             Log::error('KPay Redirect: KPayException', [

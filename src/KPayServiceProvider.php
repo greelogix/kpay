@@ -48,7 +48,7 @@ class KPayServiceProvider extends ServiceProvider
                 $responseUrl,
                 $errorUrl,
                 $config['currency'] ?? '414',
-                $config['language'] ?? 'EN',
+                $config['language'] ?? 'USA',
                 $config['kfast_enabled'] ?? false,
                 $config['apple_pay_enabled'] ?? false
             );

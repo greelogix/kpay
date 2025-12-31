@@ -139,10 +139,11 @@ return [
     | Language
     |--------------------------------------------------------------------------
     |
-    | Default language code (AR or EN).
+    | Default language code (USA or AR).
+    | Note: KPAY requires USA (not EN) for English language.
     |
     */
-    'language' => env('KPAY_LANGUAGE', 'EN'),
+    'language' => env('KPAY_LANGUAGE', 'USA'),
 
     /*
     |--------------------------------------------------------------------------
