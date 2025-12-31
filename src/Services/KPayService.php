@@ -259,13 +259,14 @@ class KPayService
 
         // Build trandata parameter as per SendPerformREQuest.php line 129
         // Format: ENCRYPTED_DATA&tranportalId=ID&responseURL=URL&errorURL=URL
-        // Note: Only encode the encrypted part, keep & characters for URL parameters
+        // Note: Build the trandata string with proper URL encoding for individual values
         $trandata = $encryptedData . '&tranportalId=' . urlencode($tranportalId) . '&responseURL=' . urlencode($responseUrl) . '&errorURL=' . urlencode($errorUrl);
 
         // Build final URL as per SendPerformREQuest.php line 139
         // Format: baseUrl?param=paymentInit&trandata=ENCRYPTED&tranportalId=ID&responseURL=URL&errorURL=URL
-        // Note: Only encode the encrypted part of trandata, not the entire string
-        $finalUrl = $this->baseUrl . '?param=paymentInit&trandata=' . $trandata;
+        // CRITICAL: The entire trandata value must be URL-encoded as a single parameter
+        // This ensures the & characters inside trandata are preserved when used in JavaScript redirect
+        $finalUrl = $this->baseUrl . '?param=paymentInit&trandata=' . urlencode($trandata);
 
         // Store original parameters for logging and payment record
         $params = [
@@ -298,6 +299,10 @@ class KPayService
             'error_url' => $errorUrl,
             'test_mode' => $this->testMode,
             'final_url_length' => strlen($finalUrl),
+            'trandata_preview' => substr($trandata, 0, 100) . '...',
+            'has_error_url' => !empty($errorUrl),
+            'has_response_url' => !empty($responseUrl),
+            'error_url_in_trandata' => strpos($trandata, 'errorURL=') !== false,
         ]);
 
         // Create payment record within transaction for data integrity
