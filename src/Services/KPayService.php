@@ -251,7 +251,7 @@ class KPayService
 
         $trandata = $encryptedData . '&tranportalId=' . $tranportalId . '&responseURL=' . $responseUrl . '&errorURL=' . $errorUrl;
 
-        $finalUrl = $this->baseUrl . '?param=paymentInit&trandata=' . urlencode($trandata);
+        $finalUrl = $this->baseUrl . '?param=paymentInit&trandata=' . $trandata;
 
         $params = [
             'id' => $tranportalId,
