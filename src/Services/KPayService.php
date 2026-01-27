@@ -542,7 +542,8 @@ class KPayService
     protected function encryptAES(string $str, string $key): string
     {
         $str = $this->pkcs5_pad($str);
-        $encrypted = openssl_encrypt($str, 'AES-128-CBC', $key, OPENSSL_ZERO_PADDING, $key);
+        $iv = str_pad(substr($key, 0, 16), 16, "\0", STR_PAD_RIGHT); 
+        $encrypted = openssl_encrypt($str, 'AES-128-CBC', $key, OPENSSL_ZERO_PADDING, $iv);
         $encrypted = base64_decode($encrypted);
         $encrypted = unpack('C*', $encrypted);
         $encrypted = $this->byteArray2Hex($encrypted);

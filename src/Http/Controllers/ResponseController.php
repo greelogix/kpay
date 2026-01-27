@@ -179,8 +179,8 @@ class ResponseController extends Controller
     {
         $code = $this->hex2ByteArray(trim($code));
         $code = $this->byteArray2String($code);
-        $iv = $key;
         $code = base64_encode($code);
+        $iv = str_pad(substr($key, 0, 16), 16, "\0", STR_PAD_RIGHT);
         $decrypted = openssl_decrypt($code, 'AES-128-CBC', $key, OPENSSL_ZERO_PADDING, $iv);
         return $this->pkcs5_unpad($decrypted);
     }
